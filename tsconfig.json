@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "module": "ESNext",
+    "target": "ESNext",
+    "noImplicitAny": true,
+    "noEmit": true,
+    "strictNullChecks": true,
+    "moduleResolution": "bundler",
+    "outDir": "build",
+    "lib": ["DOM", "ESNext"],
+    "types": ["rolldown-vite/client"],
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src", "readme.md"],
+  "references": [{ "path": "./tsconfig.vite.json" }]
+}

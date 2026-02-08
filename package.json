@@ -1,0 +1,62 @@
+{
+  "name": "@nimir/references",
+  "version": "0.0.0",
+  "description": "Nested resource references resolver for typescript",
+  "keywords": [
+    "Typescript",
+    "dottedpath",
+    "dotpath",
+    "vite",
+    "vitest",
+    "dot syntax",
+    "get",
+    "set",
+    "deep",
+    "nesting",
+    "update",
+    "change",
+    "typesafe"
+  ],
+  "homepage": "https://www.github.com/Mimikkk/references",
+  "bugs": {
+    "url": "https://github.com/Mimikkk/references/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mimikkk/references.git"
+  },
+  "license": "MIT",
+  "author": "Daniel Zdancewicz <zdancewicz.daniel@gmail.com>",
+  "type": "module",
+  "exports": {
+    "types": "./build/references.d.ts",
+    "require": "./build/references.cjs.js",
+    "default": "./build/references.es.js"
+  },
+  "main": "./build/references.cjs.js",
+  "unpkg": "./build/references.umd.js",
+  "module": "./build/references.es.js",
+  "source": "./src/references.ts",
+  "files": [
+    "build",
+    "src/",
+    "tsconfig.json",
+    "tsconfig.vite.json",
+    "vite.config.ts"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest test"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
+    "prettier": "^3.8.1",
+    "rolldown-vite": "^7.3.1",
+    "typescript": "^5.9.3",
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "idb-keyval": "^6.2.2"
+  }
+}
