@@ -16,8 +16,8 @@ describe('References - Builder', () => {
   const bs = [b1, b2];
 
   const references = defineReferences(c => ({
-    A: c.source<Entity>({ fetchAll: async () => as, cache: false, ttl: 0 }),
-    B: c.source<Entity>({ fetchAll: async () => bs, cache: false, ttl: 0 }),
+    A: c.source<Entity>({ fetchAll: () => as }),
+    B: c.source<Entity>({ fetchAll: () => bs }),
   }));
 
   describe('inline mode', () => {
@@ -73,7 +73,7 @@ describe('References - Builder', () => {
     it('invalidate forces re-fetch on next resolve', async () => {
       const fetchAll = vi.fn(async () => [a1]);
       const references = defineReferences(c => ({
-        A: c.source<Entity>({ fetchAll, cache: false, ttl: 0 }),
+        A: c.source<Entity>({ fetchAll }),
       }));
 
       await references.inline({ fId: a1.id }, { fields: { fId: 'A' } });
@@ -91,8 +91,8 @@ describe('References - Builder', () => {
       const fetchBs = vi.fn(async () => [b1]);
 
       const references = defineReferences(c => ({
-        A: c.source<Entity>({ fetchAll: fetchAs, cache: false, ttl: 0 }),
-        B: c.source<Entity>({ fetchAll: fetchBs, cache: false, ttl: 0 }),
+        A: c.source<Entity>({ fetchAll: fetchAs }),
+        B: c.source<Entity>({ fetchAll: fetchBs }),
       }));
 
       await references.inline({ fId: a1.id, bId: b1.id }, { fields: { fId: 'A', bId: 'B' } });

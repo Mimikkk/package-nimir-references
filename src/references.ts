@@ -1,10 +1,10 @@
 import { type Fn } from './common.ts';
 
 import { SourceResolver } from './resolver.ts';
-import { SourceStore } from './store.ts';
+import { ResourceStore } from './store.ts';
 import type { RefFields, Resolve, Source, SourceRegistry } from './types.ts';
 
-import type { SourceStoreOptions } from './store.ts';
+import type { ResourceStoreOptions } from './store.ts';
 
 export type FnAwait<TFn extends Fn> = Awaited<ReturnType<TFn>>;
 export interface ResolveFn<
@@ -23,7 +23,7 @@ export type ResolveOf<TType extends (...params: any[]) => Promise<any>> = TType 
 
 class ReferenceResolver<TSources extends SourceRegistry> {
   constructor(
-    private readonly stores: ReadonlyMap<string, SourceStore>,
+    private readonly stores: ReadonlyMap<string, ResourceStore>,
     private readonly resolver: SourceResolver<TSources>,
   ) {
     this.inline = this.inline.bind(this);
@@ -68,7 +68,7 @@ class ReferenceResolver<TSources extends SourceRegistry> {
   }
 }
 
-type SourceOptions<T> = Omit<SourceStoreOptions<T>, 'name'>;
+type SourceOptions<T> = ResourceStoreOptions<T>;
 
 export interface SourcesBuilderContext {
   source<TData>(options: SourceOptions<TData>): Source<TData>;
@@ -85,9 +85,9 @@ export function defineReferences<TSources extends SourceRegistry>(
 ): ReferenceResolver<TSources> {
   const registry = sources(builder);
 
-  const stores = new Map<string, SourceStore>();
+  const stores = new Map<string, ResourceStore>();
   for (const [name, options] of Object.entries(registry)) {
-    stores.set(name, SourceStore.from({ ...options, name }));
+    stores.set(name, ResourceStore.from(options));
   }
 
   const resolver = SourceResolver.from(stores);

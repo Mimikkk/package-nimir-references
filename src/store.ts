@@ -1,41 +1,56 @@
 import { FcNoop, Time } from './common.ts';
 
-import type { NegativeEntry, NegativeReason } from './cache.ts';
-import { IndexDbCache, SourceCache } from './cache.ts';
+import type { NegativeEntry, NegativeReason } from './caches/cache.ts';
+import { IndexDbCache, SourceCache } from './caches/cache.ts';
 
 const TtlMs = Time.hour4;
 
-export class SourceStore<T = unknown> {
-  private warmUpPromise: Promise<void> | null = null;
-  private lastWarmUp = 0;
+interface ResourceStoreStrategy<TResource> {
+  resolve: (ids: string[]) => Promise<Map<string, TResource | null>>;
+  invalidate: (ids?: string[]) => Promise<void>;
+  clearAll: () => Promise<void>;
+}
+
+interface SharedOptions<TResource> {
+  cache: SourceCache<TResource> | null;
+  keyBy: (item: TResource) => string;
+  ttl: number;
+}
+
+class FetchAllStrategy<T> implements ResourceStoreStrategy<T> {
+  private warmup: Promise<void> | null = null;
+  private timestampMs = 0;
 
   private constructor(
-    private readonly positives = new Map<string, T>(),
-    private readonly negatives = new Map<string, NegativeEntry>(),
-    private readonly inflight = new Map<string, Promise<T | null>>(),
-    private readonly cache: SourceCache<any> | null,
+    private readonly positives: Map<string, T>,
+    private readonly negatives: Map<string, NegativeEntry>,
+    private readonly cache: SourceCache<T> | null,
     private readonly keyBy: (item: T) => string,
     private readonly ttl: number,
-    private readonly batchSize: number,
-    private readonly options: SourceStoreOptions<T>,
+    private readonly fetchAll: () => T[] | Promise<T[]>,
   ) {}
 
-  public static from<T>(options: SourceStoreOptions<T>): SourceStore<T> {
-    return new SourceStore(
+  static from<T>(options: SharedOptions<T> & { fetchAll: () => T[] | Promise<T[]> }): FetchAllStrategy<T> {
+    return new FetchAllStrategy(
       new Map<string, T>(),
       new Map<string, NegativeEntry>(),
-      new Map<string, Promise<T | null>>(),
-      options.cache !== false ? SourceCache.fromCache(IndexDbCache.fromNames(options.name, 'test')) : null,
-      options.keyBy ?? ((item: any) => item.id),
-      options.ttl ?? TtlMs,
-      options.batchSize ?? 200,
-      options,
+      options.cache,
+      options.keyBy,
+      options.ttl,
+      options.fetchAll,
     );
   }
 
   async resolve(ids: string[]): Promise<Map<string, T | null>> {
-    if (this.options.fetchAll) return this.resolveFetchAll(ids);
-    return this.resolveFetch(ids);
+    await this.ensureWarmUp();
+
+    const ttl = this.ttl;
+    if (this.timestampMs > 0 && Date.now() - this.timestampMs > ttl) {
+      this.warmup = null;
+      this.ensureWarmUp().catch(FcNoop);
+    }
+
+    return new Map(ids.map(id => [id, this.positives.get(id) ?? null]));
   }
 
   async invalidate(ids?: string[]): Promise<void> {
@@ -49,8 +64,8 @@ export class SourceStore<T = unknown> {
     } else {
       this.positives.clear();
       this.negatives.clear();
-      this.warmUpPromise = null;
-      this.lastWarmUp = 0;
+      this.warmup = null;
+      this.timestampMs = 0;
       await this.cache?.clear().catch(FcNoop);
     }
   }
@@ -58,34 +73,18 @@ export class SourceStore<T = unknown> {
   async clearAll(): Promise<void> {
     this.positives.clear();
     this.negatives.clear();
-    this.inflight.clear();
-    this.warmUpPromise = null;
-    this.lastWarmUp = 0;
+    this.warmup = null;
+    this.timestampMs = 0;
     await this.cache?.clear();
   }
 
-  private async resolveFetchAll(ids: string[]): Promise<Map<string, T | null>> {
-    await this.ensureWarmUp();
-
-    const ttl = this.ttl;
-    if (this.lastWarmUp > 0 && Date.now() - this.lastWarmUp > ttl) {
-      this.warmUpPromise = null;
-      this.ensureWarmUp().catch(FcNoop);
-    }
-
-    const result = new Map<string, T | null>();
-    for (const id of ids) {
-      result.set(id, this.positives.get(id) ?? null);
-    }
-    return result;
-  }
-
   private ensureWarmUp(): Promise<void> {
-    this.warmUpPromise ??= this.doWarmUp().catch(err => {
-      this.warmUpPromise = null;
-      throw err;
+    this.warmup ??= this.doWarmUp().catch(error => {
+      this.warmup = null;
+      throw error;
     });
-    return this.warmUpPromise;
+
+    return this.warmup;
   }
 
   private async doWarmUp(): Promise<void> {
@@ -93,15 +92,17 @@ export class SourceStore<T = unknown> {
 
     if (this.cache) {
       const { positive, negative } = await this.cache.read<T>(ttl);
+
       if (positive.size > 0) {
         for (const [id, item] of positive) this.positives.set(id, item);
         for (const [id, entry] of negative) this.negatives.set(id, entry);
-        this.lastWarmUp = Date.now();
+        this.timestampMs = Date.now();
+
         return;
       }
     }
 
-    const items = await this.options.fetchAll!();
+    const items = await this.fetchAll();
     this.positives.clear();
     this.negatives.clear();
 
@@ -113,10 +114,36 @@ export class SourceStore<T = unknown> {
     }
 
     this.cache?.persistPositives(entries).catch(FcNoop);
-    this.lastWarmUp = Date.now();
+    this.timestampMs = Date.now();
+  }
+}
+
+class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
+  private constructor(
+    private readonly positives: Map<string, T>,
+    private readonly negatives: Map<string, NegativeEntry>,
+    private readonly inflight: Map<string, Promise<T | null>>,
+    private readonly cache: SourceCache<T> | null,
+    private readonly keyBy: (item: T) => string,
+    private readonly ttl: number,
+    private readonly batchSize: number,
+    private readonly fetch?: (ids: string[]) => T[] | Promise<T[]>,
+  ) {}
+
+  static from<T>(options: SharedOptions<T> & { batchSize: number; fetch?: (ids: string[]) => T[] | Promise<T[]> }) {
+    return new FetchByIdsStrategy(
+      new Map<string, T>(),
+      new Map<string, NegativeEntry>(),
+      new Map<string, Promise<T | null>>(),
+      options.cache,
+      options.keyBy,
+      options.ttl,
+      options.batchSize,
+      options.fetch,
+    );
   }
 
-  private async resolveFetch(ids: string[]): Promise<Map<string, T | null>> {
+  async resolve(ids: string[]): Promise<Map<string, T | null>> {
     const result = new Map<string, T | null>();
     const joins: Promise<void>[] = [];
     const remaining: string[] = [];
@@ -160,6 +187,28 @@ export class SourceStore<T = unknown> {
     return result;
   }
 
+  async invalidate(ids?: string[]): Promise<void> {
+    if (ids) {
+      for (const id of ids) {
+        this.positives.delete(id);
+        this.negatives.delete(id);
+      }
+
+      await this.cache?.clearIds(ids).catch(FcNoop);
+    } else {
+      this.positives.clear();
+      this.negatives.clear();
+      await this.cache?.clear().catch(FcNoop);
+    }
+  }
+
+  async clearAll(): Promise<void> {
+    this.positives.clear();
+    this.negatives.clear();
+    this.inflight.clear();
+    await this.cache?.clear();
+  }
+
   private async fetchAndCache(ids: string[]): Promise<Map<string, T | null>> {
     const deferreds = new Map<string, (v: T | null) => void>();
     for (const id of ids) {
@@ -175,7 +224,7 @@ export class SourceStore<T = unknown> {
         remaining = await this.drainFromIdb(remaining, result, deferreds);
       }
 
-      if (remaining.length > 0 && this.options.fetch) {
+      if (remaining.length > 0 && this.fetch) {
         await this.fetchFromNetwork(remaining, result, deferreds);
       } else {
         for (const id of remaining) {
@@ -305,7 +354,7 @@ export class SourceStore<T = unknown> {
   private async batchFetch(ids: string[]): Promise<T[]> {
     const batchSize = this.batchSize;
     if (!batchSize || ids.length <= batchSize) {
-      return this.options.fetch!(ids);
+      return this.fetch!(ids);
     }
 
     const chunks: string[][] = [];
@@ -313,27 +362,58 @@ export class SourceStore<T = unknown> {
       chunks.push(ids.slice(i, i + batchSize));
     }
 
-    const results = await Promise.all(chunks.map(chunk => this.options.fetch!(chunk)));
+    const results = await Promise.all(chunks.map(chunk => this.fetch!(chunk)));
     return results.flat();
   }
 }
 
-export interface SourceStoreOptions<T> {
-  /** Batch fetch items by IDs. */
-  fetch?: (ids: string[]) => Promise<T[]>;
-  /** Load entire dataset at once. */
-  fetchAll?: () => Promise<T[]>;
-  /** Extract ID from an item. Default: `(item) => item.id`. */
-  keyBy?: (item: T) => string;
-  /** Positive cache TTL in ms. */
-  ttl?: number;
-  /** Max IDs per `fetch` call. Chunks automatically if exceeded. */
-  batchSize?: number;
-  /** IDB caching. Default: `true`. */
-  cache?: boolean;
-  /** IDB database name. */
-  name: string;
+export class ResourceStore<T = unknown> {
+  private constructor(private readonly strategy: ResourceStoreStrategy<T>) {}
+
+  public static from<T>(options: ResourceStoreOptions<T>): ResourceStore<T> {
+    const cache = options.cache ? SourceCache.fromCache(IndexDbCache.fromNames(options.cache, 'test')) : null;
+    const keyBy = options.keyBy ?? ((item: any) => item.id);
+    const ttl = options.ttlMs ?? TtlMs;
+
+    const fetchAll = (options as FetchAllStrategyOptions<T>).fetchAll;
+    if (fetchAll) {
+      return new ResourceStore(FetchAllStrategy.from({ cache: cache as SourceCache<T>, keyBy, ttl, fetchAll }));
+    }
+
+    const fetch = (options as FetchStrategyOptions<T>).fetchByIds;
+    const batchSize = (options as FetchStrategyOptions<T>).batchSize ?? 200;
+    return new ResourceStore(FetchByIdsStrategy.from({ cache, keyBy, ttl, batchSize, fetch }));
+  }
+
+  async resolve(ids: string[]): Promise<Map<string, T | null>> {
+    return this.strategy.resolve(ids);
+  }
+
+  async invalidate(ids?: string[]): Promise<void> {
+    await this.strategy.invalidate(ids);
+  }
+
+  async clearAll(): Promise<void> {
+    await this.strategy.clearAll();
+  }
 }
+
+export interface FetchStrategyOptions<TResource> {
+  fetchByIds?: (ids: string[]) => TResource[] | Promise<TResource[]>;
+  keyBy?: (item: TResource) => string;
+  ttlMs?: number;
+  batchSize?: number;
+  cache?: string;
+}
+
+export interface FetchAllStrategyOptions<TResource> {
+  fetchAll?: () => TResource[] | Promise<TResource[]>;
+  keyBy?: (item: TResource) => string;
+  ttlMs?: number;
+  cache?: string;
+}
+
+export type ResourceStoreOptions<T> = FetchStrategyOptions<T> | FetchAllStrategyOptions<T>;
 
 function readHttpStatus(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') return undefined;

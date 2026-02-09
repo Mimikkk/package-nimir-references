@@ -11,11 +11,10 @@ type PotentialRef = StrRef | ArrRef;
 
 type DirectRef<TSources extends SourceRegistry> = keyof TSources;
 
-type NestedRef<TSources extends SourceRegistry> = keyof TSources extends infer TSource
-  ? TSource extends DirectRef<TSources>
+type NestedRef<TSources extends SourceRegistry, TSource extends keyof TSources = keyof TSources> =
+  TSource extends DirectRef<TSources>
     ? { source: TSource; fields: RefFields<SourceOf<TSources[TSource]>, TSources> }
-    : never
-  : never;
+    : never;
 
 type FieldRef<TSources extends SourceRegistry> = DirectRef<TSources> | NestedRef<TSources>;
 

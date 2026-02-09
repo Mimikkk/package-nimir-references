@@ -184,7 +184,7 @@ interface ComplexPagePayload {
 
 const iso = (str: IsoDate): IsoDate => str as IsoDate;
 
-const DATA = {
+const Resources = {
   users: [
     {
       id: 'u1',
@@ -389,66 +389,52 @@ const DATA = {
   ] satisfies AuditEvent[],
 } as const;
 
-const sources = (context: SourcesBuilderContext) =>
+const sources = (c: SourcesBuilderContext) =>
   ({
-    User: context.source<User>({
-      cache: false,
-      fetchAll: async () => DATA.users as unknown as User[],
+    User: c.source<User>({
+      fetchAll: () => Resources.users,
     }),
-    Team: context.source<Team>({
-      cache: false,
-      fetchAll: async () => DATA.teams as unknown as Team[],
+    Team: c.source<Team>({
+      fetchAll: () => Resources.teams,
     }),
-    Org: context.source<Organization>({
-      cache: false,
-      fetchAll: async () => DATA.orgs as unknown as Organization[],
+    Org: c.source<Organization>({
+      fetchAll: () => Resources.orgs,
     }),
-    Role: context.source<Role>({
-      cache: false,
-      fetch: async (ids: string[]) => (DATA.roles as unknown as Role[]).filter(r => ids.includes(r.id)),
+    Role: c.source<Role>({
+      fetchByIds: (ids: string[]) => Resources.roles.filter(r => ids.includes(r.id)),
       batchSize: 1,
     }),
-    Permission: context.source<Permission>({
-      cache: false,
-      fetch: async (ids: string[]) => (DATA.permissions as unknown as Permission[]).filter(p => ids.includes(p.id)),
+    Permission: c.source<Permission>({
+      fetchByIds: (ids: string[]) => Resources.permissions.filter(p => ids.includes(p.id)),
       batchSize: 2,
     }),
-    FeatureFlag: context.source<FeatureFlag>({
-      cache: false,
-      fetchAll: async () => DATA.featureFlags as unknown as FeatureFlag[],
+    FeatureFlag: c.source<FeatureFlag>({
+      fetchAll: () => Resources.featureFlags,
     }),
-    File: context.source<File>({
-      cache: false,
-      fetch: async (ids: string[]) => (DATA.files as unknown as File[]).filter(f => ids.includes(f.id)),
+    File: c.source<File>({
+      fetchByIds: (ids: string[]) => Resources.files.filter(f => ids.includes(f.id)),
       batchSize: 50,
     }),
-    PaymentMethod: context.source<PaymentMethod>({
-      cache: false,
-      fetchAll: async () => DATA.paymentMethods as unknown as PaymentMethod[],
+    PaymentMethod: c.source<PaymentMethod>({
+      fetchAll: () => Resources.paymentMethods,
     }),
-    Invoice: context.source<Invoice>({
-      cache: false,
-      fetchAll: async () => DATA.invoices as unknown as Invoice[],
+    Invoice: c.source<Invoice>({
+      fetchAll: () => Resources.invoices,
     }),
-    Project: context.source<Project>({
-      cache: false,
-      fetchAll: async () => DATA.projects as unknown as Project[],
+    Project: c.source<Project>({
+      fetchAll: () => Resources.projects,
     }),
-    Task: context.source<Task>({
-      cache: false,
-      fetchAll: async () => DATA.tasks as unknown as Task[],
+    Task: c.source<Task>({
+      fetchAll: () => Resources.tasks,
     }),
-    Comment: context.source<Comment>({
-      cache: false,
-      fetchAll: async () => DATA.comments as unknown as Comment[],
+    Comment: c.source<Comment>({
+      fetchAll: () => Resources.comments,
     }),
-    Tag: context.source<Tag>({
-      cache: false,
-      fetchAll: async () => DATA.tags as unknown as Tag[],
+    Tag: c.source<Tag>({
+      fetchAll: () => Resources.tags,
     }),
-    AuditEvent: context.source<AuditEvent>({
-      cache: false,
-      fetchAll: async () => DATA.auditEvents as unknown as AuditEvent[],
+    AuditEvent: c.source<AuditEvent>({
+      fetchAll: () => Resources.auditEvents,
     }),
   }) satisfies SourceRegistry;
 

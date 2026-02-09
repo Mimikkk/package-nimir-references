@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { SourceResolver } from './resolver.ts';
-import { SourceStore } from './store.ts';
+import { ResourceStore } from './store.ts';
 
 type Entity = { id: string };
 
@@ -11,19 +11,15 @@ const a1 = entity('f1');
 const a2 = entity('f2');
 const b1 = entity('b1');
 
-function mockStore(items: Entity[]): SourceStore<Entity> {
-  return SourceStore.from<Entity>({
-    name: 'mock',
-    fetchAll: async () => items,
-    cache: false,
-  });
+function mockStore(items: Entity[]): ResourceStore<Entity> {
+  return ResourceStore.from<Entity>({ fetchAll: () => items });
 }
 
 function createResolver(configs: Record<string, Entity[]>): SourceResolver<any> {
-  const stores = new Map<string, SourceStore>();
+  const stores = new Map<string, ResourceStore>();
   for (const [name, items] of Object.entries(configs)) {
     const store = mockStore(items);
-    stores.set(name, store as SourceStore);
+    stores.set(name, store as ResourceStore);
   }
   return SourceResolver.from(stores);
 }

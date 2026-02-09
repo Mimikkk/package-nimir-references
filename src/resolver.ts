@@ -1,13 +1,13 @@
 import type { Nil } from './common.ts';
 
-import type { SourceStore } from './store.ts';
+import type { ResourceStore } from './store.ts';
 import { RefFields, Resolve, SourceRegistry } from './types.ts';
 
 export class SourceResolver<TSources extends SourceRegistry> {
-  private constructor(private readonly stores: ReadonlyMap<string, SourceStore>) {}
+  private constructor(private readonly stores: ReadonlyMap<string, ResourceStore>) {}
 
   public static from<TSources extends SourceRegistry>(
-    stores: ReadonlyMap<Extract<keyof TSources, string>, SourceStore>,
+    stores: ReadonlyMap<Extract<keyof TSources, string>, ResourceStore>,
   ): SourceResolver<TSources> {
     return new SourceResolver(stores);
   }

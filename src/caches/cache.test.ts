@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { ResourceStore } from '../store.ts';
 import { IndexDbCache, SourceCache } from './cache.ts';
-import { SourceStore } from './store.ts';
 
 type Entity = { id: string };
 
@@ -17,11 +17,11 @@ describe('References - Cache', () => {
     const fetchFn = vi.fn(async (ids: string[]) => ids.map(entity));
     const storeName = `idb-test-${Date.now()}`;
 
-    const store1 = SourceStore.from<Entity>({ name: storeName, fetch: fetchFn, cache: true });
+    const store1 = ResourceStore.from<Entity>({ fetchByIds: fetchFn, cache: storeName });
     await store1.resolve(['a']);
     expect(fetchFn).toHaveBeenCalledTimes(1);
 
-    const store2 = SourceStore.from<Entity>({ name: storeName, fetch: fetchFn, cache: true });
+    const store2 = ResourceStore.from<Entity>({ fetchByIds: fetchFn, cache: storeName });
     const result = await store2.resolve(['a']);
 
     expect(result.get('a')).toEqual(entity('a'));
@@ -145,12 +145,12 @@ describe('References - Cache', () => {
     const storeName = `idb-fetchall-${Date.now()}`;
     const fetchAll = vi.fn(async () => [a1, a2]);
 
-    const store1 = SourceStore.from<Entity>({ name: storeName, fetchAll, cache: true });
+    const store1 = ResourceStore.from<Entity>({ fetchAll, cache: storeName });
     await store1.resolve([a1.id]);
     expect(fetchAll).toHaveBeenCalledTimes(1);
 
     const fetchAll2 = vi.fn(async () => [a1, a2]);
-    const store2 = SourceStore.from<Entity>({ name: storeName, fetchAll: fetchAll2, cache: true });
+    const store2 = ResourceStore.from<Entity>({ fetchAll: fetchAll2, cache: storeName });
     const result = await store2.resolve([a1.id, a2.id]);
 
     expect(result.get(a1.id)).toEqual(a1);
@@ -162,20 +162,18 @@ describe('References - Cache', () => {
     const storeName = `idb-neg-${Date.now()}`;
     const fetch1 = vi.fn(async () => []);
 
-    const store1 = SourceStore.from<Entity>({
-      name: storeName,
-      fetch: fetch1,
-      cache: true,
+    const store1 = ResourceStore.from<Entity>({
+      fetchByIds: fetch1,
+      cache: storeName,
       ttlMs: 60_000,
     });
     await store1.resolve(['missing']);
     expect(fetch1).toHaveBeenCalledTimes(1);
 
     const fetch2 = vi.fn(async () => []);
-    const store2 = SourceStore.from<Entity>({
-      name: storeName,
-      fetch: fetch2,
-      cache: true,
+    const store2 = ResourceStore.from<Entity>({
+      fetchByIds: fetch2,
+      cache: storeName,
       ttlMs: 60_000,
     });
     const result = await store2.resolve(['missing']);
