@@ -64,32 +64,24 @@ class ReferenceResolver<TSources extends SourceRegistry> {
   }
 
   async clear(): Promise<void> {
-    await Promise.all(Array.from(this.stores.values()).map(s => s.clearAll()));
+    await Promise.all(Array.from(this.stores.values()).map(s => s.invalidate()));
   }
 }
 
-type SourceOptions<T> = ResourceStoreOptions<T>;
-
 export interface SourcesBuilderContext {
-  source<TData>(options: SourceOptions<TData>): Source<TData>;
+  source<TData>(options: ResourceStoreOptions<TData>): Source<TData>;
 }
 
 const builder: SourcesBuilderContext = {
-  source<TData>(options: SourceOptions<TData>): Source<TData> {
-    return options;
+  source<TData>(options: ResourceStoreOptions<TData>): ResourceStore<TData> {
+    return ResourceStore.from(options);
   },
 };
 
 export function defineReferences<TSources extends SourceRegistry>(
   sources: (context: SourcesBuilderContext) => TSources,
 ): ReferenceResolver<TSources> {
-  const registry = sources(builder);
-
-  const stores = new Map<string, ResourceStore>();
-  for (const [name, options] of Object.entries(registry)) {
-    stores.set(name, ResourceStore.from(options));
-  }
-
+  const stores = new Map(Object.entries(sources(builder)) as [string, ResourceStore][]);
   const resolver = SourceResolver.from(stores);
 
   return new ReferenceResolver(stores, resolver);

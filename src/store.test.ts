@@ -193,7 +193,7 @@ describe('References - SourceStore', () => {
       const store = ResourceStore.from<Entity>({ fetchByIds: fetch });
 
       await store.resolve(['a', 'b']);
-      store.invalidate();
+      await store.invalidate();
       await store.resolve(['a', 'b']);
 
       expect(fetch).toHaveBeenCalledTimes(2);
@@ -237,7 +237,7 @@ describe('References - SourceStore', () => {
       await store.resolve([a1.id]);
       expect(fetchAll).toHaveBeenCalledTimes(1);
 
-      await store.clearAll();
+      await store.invalidate();
       await store.resolve([a1.id]);
       expect(fetchAll).toHaveBeenCalledTimes(2);
     });

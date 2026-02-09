@@ -14,7 +14,7 @@ interface ResourceStoreStrategy<TResource> {
 interface SharedOptions<TResource> {
   cache: ResourceCache<TResource> | null;
   keyBy: (item: TResource) => string;
-  ttl: number;
+  ttlMs: number;
 }
 
 class FetchAllStrategy<T> implements ResourceStoreStrategy<T> {
@@ -36,7 +36,7 @@ class FetchAllStrategy<T> implements ResourceStoreStrategy<T> {
       new Map<string, NegativeEntry>(),
       options.cache,
       options.keyBy,
-      options.ttl,
+      options.ttlMs,
       options.fetchAll,
     );
   }
@@ -125,19 +125,25 @@ class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
     private readonly inflight: Map<string, Promise<T | null>>,
     private readonly cache: ResourceCache<T> | null,
     private readonly keyBy: (item: T) => string,
-    private readonly ttl: number,
+    private readonly ttlMs: number,
     private readonly batchSize: number,
-    private readonly fetch?: (ids: string[]) => T[] | Promise<T[]>,
+    private readonly fetch: (ids: string[]) => T[] | Promise<T[]>,
   ) {}
 
-  static from<T>(options: SharedOptions<T> & { batchSize: number; fetch?: (ids: string[]) => T[] | Promise<T[]> }) {
+  static from<T>(options: {
+    cache: ResourceCache<T> | null;
+    keyBy: (item: T) => string;
+    ttlMs: number;
+    batchSize: number;
+    fetch: (ids: string[]) => T[] | Promise<T[]>;
+  }) {
     return new FetchByIdsStrategy(
       new Map<string, T>(),
       new Map<string, NegativeEntry>(),
       new Map<string, Promise<T | null>>(),
       options.cache,
       options.keyBy,
-      options.ttl,
+      options.ttlMs,
       options.batchSize,
       options.fetch,
     );
@@ -221,10 +227,10 @@ class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
       let remaining = ids;
 
       if (this.cache) {
-        remaining = await this.drainFromIdb(remaining, result, deferreds);
+        remaining = await this.drainFromCache(remaining, result, deferreds);
       }
 
-      if (remaining.length > 0 && this.fetch) {
+      if (remaining.length > 0) {
         await this.fetchFromNetwork(remaining, result, deferreds);
       } else {
         for (const id of remaining) {
@@ -243,17 +249,18 @@ class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
     return result;
   }
 
-  private async drainFromIdb(
+  private async drainFromCache(
     ids: string[],
     result: Map<string, T | null>,
     deferreds: Map<string, (v: T | null) => void>,
   ): Promise<string[]> {
-    const ttl = this.ttl;
+    const ttl = this.ttlMs;
     const positives = await this.cache!.positives(ids, ttl);
 
     const afterPositive: string[] = [];
     for (const id of ids) {
       const item = positives.get(id);
+
       if (item !== undefined) {
         this.positives.set(id, item);
         result.set(id, item);
@@ -316,7 +323,7 @@ class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
   ): void {
     if (ids.length === 0) return;
 
-    const ttl = this.ttl;
+    const ttl = this.ttlMs;
     const expiry = Date.now() + ttl;
 
     for (const id of ids) {
@@ -354,7 +361,7 @@ class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
   private async batchFetch(ids: string[]): Promise<T[]> {
     const batchSize = this.batchSize;
     if (!batchSize || ids.length <= batchSize) {
-      return this.fetch!(ids);
+      return this.fetch(ids);
     }
 
     const chunks: string[][] = [];
@@ -362,7 +369,7 @@ class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
       chunks.push(ids.slice(i, i + batchSize));
     }
 
-    const results = await Promise.all(chunks.map(chunk => this.fetch!(chunk)));
+    const results = await Promise.all(chunks.map(chunk => this.fetch(chunk)));
     return results.flat();
   }
 }
@@ -374,16 +381,28 @@ export class ResourceStore<T = unknown> {
   public static from<T>(options: ResourceStoreOptions<T>): ResourceStore<T> {
     const cache = options.cache ? ResourceCache.fromCache<T>(IndexDbCache.fromNames(options.cache, 'test')) : null;
     const keyBy = options.keyBy ?? byId<T>;
-    const ttl = options.ttlMs ?? TtlMs;
+    const ttlMs = options.ttlMs ?? TtlMs;
 
-    const fetchAll = (options as FetchAllStrategyOptions<T>).fetchAll;
-    if (fetchAll) {
-      return new ResourceStore(FetchAllStrategy.from({ cache: cache as ResourceCache<T>, keyBy, ttl, fetchAll }));
-    }
+    const strategy = (() => {
+      if ('fetchAll' in options) {
+        return FetchAllStrategy.from({
+          cache,
+          keyBy,
+          ttlMs,
+          fetchAll: options.fetchAll,
+        });
+      }
 
-    const fetch = (options as FetchStrategyOptions<T>).fetchByIds;
-    const batchSize = (options as FetchStrategyOptions<T>).batchSize ?? 200;
-    return new ResourceStore(FetchByIdsStrategy.from({ cache, keyBy, ttl, batchSize, fetch }));
+      return FetchByIdsStrategy.from({
+        cache,
+        keyBy,
+        ttlMs,
+        batchSize: options.batchSize ?? 200,
+        fetch: options.fetchByIds,
+      });
+    })();
+
+    return new ResourceStore(strategy);
   }
 
   async resolve(ids: string[]): Promise<Map<string, T | null>> {
@@ -400,7 +419,7 @@ export class ResourceStore<T = unknown> {
 }
 
 export interface FetchStrategyOptions<TResource> {
-  fetchByIds?: (ids: string[]) => TResource[] | Promise<TResource[]>;
+  fetchByIds: (ids: string[]) => TResource[] | Promise<TResource[]>;
   keyBy?: (item: TResource) => string;
   ttlMs?: number;
   batchSize?: number;
@@ -408,7 +427,7 @@ export interface FetchStrategyOptions<TResource> {
 }
 
 export interface FetchAllStrategyOptions<TResource> {
-  fetchAll?: () => TResource[] | Promise<TResource[]>;
+  fetchAll: () => TResource[] | Promise<TResource[]>;
   keyBy?: (item: TResource) => string;
   ttlMs?: number;
   cache?: string;
