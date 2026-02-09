@@ -1,7 +1,7 @@
 import { FcNoop, Time } from './common.ts';
 
 import type { NegativeEntry, NegativeReason } from './caches/cache.ts';
-import { IndexDbCache, SourceCache } from './caches/cache.ts';
+import { IndexDbCache, ResourceCache } from './caches/cache.ts';
 
 const TtlMs = Time.hour4;
 
@@ -12,7 +12,7 @@ interface ResourceStoreStrategy<TResource> {
 }
 
 interface SharedOptions<TResource> {
-  cache: SourceCache<TResource> | null;
+  cache: ResourceCache<TResource> | null;
   keyBy: (item: TResource) => string;
   ttl: number;
 }
@@ -24,7 +24,7 @@ class FetchAllStrategy<T> implements ResourceStoreStrategy<T> {
   private constructor(
     private readonly positives: Map<string, T>,
     private readonly negatives: Map<string, NegativeEntry>,
-    private readonly cache: SourceCache<T> | null,
+    private readonly cache: ResourceCache<T> | null,
     private readonly keyBy: (item: T) => string,
     private readonly ttl: number,
     private readonly fetchAll: () => T[] | Promise<T[]>,
@@ -60,7 +60,7 @@ class FetchAllStrategy<T> implements ResourceStoreStrategy<T> {
         this.negatives.delete(id);
       }
 
-      await this.cache?.clearIds(ids).catch(FcNoop);
+      await this.cache?.removeByIds(ids).catch(FcNoop);
     } else {
       this.positives.clear();
       this.negatives.clear();
@@ -91,7 +91,7 @@ class FetchAllStrategy<T> implements ResourceStoreStrategy<T> {
     const ttl = this.ttl;
 
     if (this.cache) {
-      const { positive, negative } = await this.cache.read<T>(ttl);
+      const { positive, negative } = await this.cache.all(ttl);
 
       if (positive.size > 0) {
         for (const [id, item] of positive) this.positives.set(id, item);
@@ -113,7 +113,7 @@ class FetchAllStrategy<T> implements ResourceStoreStrategy<T> {
       entries.push([id, item]);
     }
 
-    this.cache?.persistPositives(entries).catch(FcNoop);
+    this.cache?.storePositives(entries).catch(FcNoop);
     this.timestampMs = Date.now();
   }
 }
@@ -123,7 +123,7 @@ class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
     private readonly positives: Map<string, T>,
     private readonly negatives: Map<string, NegativeEntry>,
     private readonly inflight: Map<string, Promise<T | null>>,
-    private readonly cache: SourceCache<T> | null,
+    private readonly cache: ResourceCache<T> | null,
     private readonly keyBy: (item: T) => string,
     private readonly ttl: number,
     private readonly batchSize: number,
@@ -194,7 +194,7 @@ class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
         this.negatives.delete(id);
       }
 
-      await this.cache?.clearIds(ids).catch(FcNoop);
+      await this.cache?.removeByIds(ids).catch(FcNoop);
     } else {
       this.positives.clear();
       this.negatives.clear();
@@ -249,7 +249,7 @@ class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
     deferreds: Map<string, (v: T | null) => void>,
   ): Promise<string[]> {
     const ttl = this.ttl;
-    const positives = await this.cache!.readPositives<T>(ids, ttl);
+    const positives = await this.cache!.positives(ids, ttl);
 
     const afterPositive: string[] = [];
     for (const id of ids) {
@@ -265,7 +265,7 @@ class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
 
     if (afterPositive.length === 0) return [];
 
-    const negatives = await this.cache!.readNegatives(afterPositive);
+    const negatives = await this.cache!.negatives(afterPositive);
     const remaining: string[] = [];
 
     for (const id of afterPositive) {
@@ -301,7 +301,7 @@ class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
     }
 
     if (this.cache && entries.length > 0) {
-      this.cache.persistPositives(entries).catch(FcNoop);
+      this.cache.storePositives(entries).catch(FcNoop);
     }
 
     const missing = ids.filter(id => !fetchedIds.has(id));
@@ -325,7 +325,7 @@ class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
       deferreds.get(id)?.(null);
     }
 
-    this.cache?.persistNegatives(ids, reason, ttl).catch(FcNoop);
+    this.cache?.storeNegatives(ids, reason, ttl).catch(FcNoop);
   }
 
   private handleFetchError(
@@ -367,17 +367,18 @@ class FetchByIdsStrategy<T> implements ResourceStoreStrategy<T> {
   }
 }
 
+const byId = <T>(item: T): string => (item as unknown as { id: string }).id;
 export class ResourceStore<T = unknown> {
   private constructor(private readonly strategy: ResourceStoreStrategy<T>) {}
 
   public static from<T>(options: ResourceStoreOptions<T>): ResourceStore<T> {
-    const cache = options.cache ? SourceCache.fromCache(IndexDbCache.fromNames(options.cache, 'test')) : null;
-    const keyBy = options.keyBy ?? ((item: any) => item.id);
+    const cache = options.cache ? ResourceCache.fromCache<T>(IndexDbCache.fromNames(options.cache, 'test')) : null;
+    const keyBy = options.keyBy ?? byId<T>;
     const ttl = options.ttlMs ?? TtlMs;
 
     const fetchAll = (options as FetchAllStrategyOptions<T>).fetchAll;
     if (fetchAll) {
-      return new ResourceStore(FetchAllStrategy.from({ cache: cache as SourceCache<T>, keyBy, ttl, fetchAll }));
+      return new ResourceStore(FetchAllStrategy.from({ cache: cache as ResourceCache<T>, keyBy, ttl, fetchAll }));
     }
 
     const fetch = (options as FetchStrategyOptions<T>).fetchByIds;

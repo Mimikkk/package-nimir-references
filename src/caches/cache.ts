@@ -13,52 +13,52 @@ import {
   type UseStore,
 } from 'idb-keyval';
 
-export interface Cache<T> {
-  get(key: string): Promise<T | null>;
-  getMany(keys: string[]): Promise<T[]>;
-  entries(): Promise<[string, T][]>;
-  values(): Promise<T[]>;
+export interface Cache<TValue> {
+  get(key: string): Promise<TValue | null>;
+  getMany(keys: string[]): Promise<TValue[]>;
+  entries(): Promise<[string, TValue][]>;
+  values(): Promise<TValue[]>;
   keys(): Promise<string[]>;
-  set(key: string, item: T): Promise<void>;
-  setMany(entries: [key: string, item: T][]): Promise<void>;
+  set(key: string, item: TValue): Promise<void>;
+  setMany(entries: [key: string, item: TValue][]): Promise<void>;
   del(key: string): Promise<void>;
   delMany(keys: string[]): Promise<void>;
   clear(): Promise<void>;
 }
 
-export class IndexDbCache<T> implements Cache<T> {
+export class IndexDbCache<TValue> implements Cache<TValue> {
   private constructor(private readonly store: UseStore) {}
 
   static fromNames<T>(database: string, store: string): IndexDbCache<T> {
     return new IndexDbCache(createStore(database, store));
   }
 
-  async values(): Promise<T[]> {
-    return await idbValues<T>(this.store);
+  async values(): Promise<TValue[]> {
+    return await idbValues<TValue>(this.store);
   }
 
   async keys(): Promise<string[]> {
     return await idbKeys<string>(this.store);
   }
 
-  async entries(): Promise<[string, T][]> {
+  async entries(): Promise<[string, TValue][]> {
     return await idbEntries(this.store);
   }
 
-  async get(key: string): Promise<T | null> {
-    const entry = await get<T>(key, this.store);
+  async get(key: string): Promise<TValue | null> {
+    const entry = await get<TValue>(key, this.store);
     return entry ?? null;
   }
 
-  async getMany(keys: string[]): Promise<T[]> {
-    return await getMany<T>(keys, this.store);
+  async getMany(keys: string[]): Promise<TValue[]> {
+    return await getMany<TValue>(keys, this.store);
   }
 
-  async set(key: string, item: T): Promise<void> {
+  async set(key: string, item: TValue): Promise<void> {
     await set(key, item, this.store);
   }
 
-  async setMany(entries: [key: string, item: T][]): Promise<void> {
+  async setMany(entries: [key: string, item: TValue][]): Promise<void> {
     await setMany(entries, this.store);
   }
 
@@ -75,29 +75,29 @@ export class IndexDbCache<T> implements Cache<T> {
   }
 }
 
-export class SourceCache<T> {
-  private constructor(private readonly cache: Cache<any>) {}
+export class ResourceCache<TResource> {
+  private constructor(private readonly cache: Cache<CacheEntry<TResource>>) {}
 
-  public static fromCache<T>(cache: Cache<T>): SourceCache<T> {
-    return new SourceCache(cache);
+  public static fromCache<TResource>(cache: Cache<CacheEntry<TResource>>): ResourceCache<TResource> {
+    return new ResourceCache(cache);
   }
 
-  async read<T>(ttl: number): Promise<{ positive: Map<string, T>; negative: Map<string, NegativeEntry> }> {
+  async all(ttlMs: number): Promise<{ positive: Map<string, TResource>; negative: Map<string, NegativeEntry> }> {
     const entries = await this.cache.entries();
-    const positive = new Map<string, T>();
+    const positive = new Map<string, TResource>();
     const negative = new Map<string, NegativeEntry>();
     const now = Date.now();
 
     for (const [key, value] of entries) {
       if (key.startsWith(NegativePrefix)) {
-        const entry = value as NegativeEntry;
+        const entry = value as unknown as NegativeEntry;
         if (now < entry.expiry) {
           negative.set(key.slice(NegativePrefix.length), entry);
         }
       } else {
-        const entry = value as CacheEntry<T>;
-        if (now - entry.updatedAt <= ttl) {
-          positive.set(key, entry.data);
+        const entry = value as PositiveEntry<TResource>;
+        if (now - entry.updatedAt <= ttlMs) {
+          positive.set(key, entry.resource);
         }
       }
     }
@@ -105,22 +105,22 @@ export class SourceCache<T> {
     return { positive, negative };
   }
 
-  async readPositives<T>(ids: string[], ttl: number): Promise<Map<string, T>> {
+  async positives(ids: string[], ttlMs: number): Promise<Map<string, TResource>> {
     if (ids.length === 0) return new Map();
 
     const now = Date.now();
     const expiredIds: string[] = [];
     const entries = await this.cache.getMany(ids);
 
-    const result = new Map<string, T>();
+    const result = new Map<string, TResource>();
     for (let i = 0; i < ids.length; ++i) {
       const entry = entries[i];
       if (!entry) continue;
 
-      if (now - entry.updatedAt > ttl) {
+      if (now - (entry as PositiveEntry<TResource>).updatedAt > ttlMs) {
         expiredIds.push(ids[i]);
       } else {
-        result.set(ids[i], entry.data);
+        result.set(ids[i], (entry as PositiveEntry<TResource>).resource);
       }
     }
 
@@ -131,23 +131,24 @@ export class SourceCache<T> {
     return result;
   }
 
-  async readNegatives(ids: string[]): Promise<Map<string, NegativeEntry>> {
+  async negatives(ids: string[]): Promise<Map<string, NegativeEntry>> {
     if (ids.length === 0) return new Map();
 
     const now = Date.now();
     const expiredIds: string[] = [];
 
     const keys = ids.map(prefixNegative);
+
     const entries = await this.cache.getMany(keys);
     const result = new Map<string, NegativeEntry>();
     for (let i = 0; i < ids.length; i++) {
       const entry = entries[i];
       if (!entry) continue;
 
-      if (now >= entry.expiry) {
+      if (now >= (entry as unknown as { expiry: number }).expiry) {
         expiredIds.push(keys[i]);
       } else {
-        result.set(ids[i], entry);
+        result.set(ids[i], entry as unknown as NegativeEntry);
       }
     }
 
@@ -157,21 +158,24 @@ export class SourceCache<T> {
     return result;
   }
 
-  async persistPositives<T>(items: [id: string, data: T][]): Promise<void> {
+  async storePositives(items: [id: string, data: TResource][]): Promise<void> {
     if (items.length === 0) return;
     const now = Date.now();
 
-    await this.cache.setMany(items.map(([id, data]): [string, CacheEntry<T>] => [id, { data, updatedAt: now }]));
+    await this.cache.setMany(
+      items.map(([id, data]): [string, PositiveEntry<TResource>] => [id, { resource: data, updatedAt: now }]),
+    );
   }
 
-  async persistNegatives(ids: string[], reason: NegativeReason, ttl: number): Promise<void> {
+  async storeNegatives(ids: string[], reason: NegativeReason, ttlMs: number): Promise<void> {
     if (ids.length === 0) return;
-    const expiry = Date.now() + ttl;
 
-    await this.cache.setMany(ids.map(id => [`${NegativePrefix}${id}`, { reason, expiry }]));
+    const expiry = Date.now() + ttlMs;
+    const entry: NegativeEntry = { reason, expiry };
+    await this.cache.setMany(ids.map(id => [`${NegativePrefix}${id}`, entry]));
   }
 
-  async clearIds(ids: string[]): Promise<void> {
+  async removeByIds(ids: string[]): Promise<void> {
     await this.cache.delMany(ids.concat(ids.map(prefixNegative)));
   }
 
@@ -187,9 +191,11 @@ export interface NegativeEntry {
   expiry: number;
 }
 
-export interface CacheEntry<T = unknown> {
-  data: T;
+export interface PositiveEntry<TResource> {
+  resource: TResource;
   updatedAt: number;
 }
+export type CacheEntry<TResource> = PositiveEntry<TResource> | NegativeEntry;
+
 const NegativePrefix = 'neg:';
 const prefixNegative = (id: string) => `${NegativePrefix}${id}`;

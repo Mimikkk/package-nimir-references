@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { ResourceStore } from '../store.ts';
-import { IndexDbCache, SourceCache } from './cache.ts';
+import { IndexDbCache, ResourceCache } from './cache.ts';
 
 type Entity = { id: string };
 
@@ -10,7 +10,7 @@ const entity = (id: string): Entity => ({ id });
 const a1 = entity('a1');
 const a2 = entity('a2');
 
-const createCache = (name: string) => SourceCache.fromCache(IndexDbCache.fromNames(name, 'test'));
+const createCache = (name: string) => ResourceCache.fromCache<Entity>(IndexDbCache.fromNames(name, 'test'));
 
 describe('References - Cache', () => {
   it('persists to IDB and serves from it after invalidate + re-create', async () => {
@@ -30,11 +30,11 @@ describe('References - Cache', () => {
 
   it('persistPositives + readPositives round-trip', async () => {
     const cache = createCache(`pers-pos-${Date.now()}`);
-    await cache.persistPositives([
+    await cache.storePositives([
       ['a', entity('a')],
       ['b', entity('b')],
     ]);
-    const result = await cache.readPositives<Entity>(['a', 'b', 'c'], Infinity);
+    const result = await cache.positives(['a', 'b', 'c'], Infinity);
 
     expect(result.get('a')).toEqual(entity('a'));
     expect(result.get('b')).toEqual(entity('b'));
@@ -46,20 +46,20 @@ describe('References - Cache', () => {
     now.mockReturnValue(1000);
 
     const cache = createCache(`pers-exp-${Date.now()}`);
-    await cache.persistPositives([['a', entity('a')]]);
+    await cache.storePositives([['a', entity('a')]]);
 
     now.mockReturnValue(2000);
 
-    const result = await cache.readPositives<Entity>(['a'], 500);
+    const result = await cache.positives(['a'], 500);
     expect(result.has('a')).toBe(false);
     now.mockRestore();
   });
 
   it('persistNegatives + readNegatives round-trip', async () => {
     const cache = createCache(`pers-neg-${Date.now()}`);
-    await cache.persistNegatives(['x', 'y'], 'not-found', 60_000);
+    await cache.storeNegatives(['x', 'y'], 'not-found', 60_000);
 
-    const result = await cache.readNegatives(['x', 'y', 'z']);
+    const result = await cache.negatives(['x', 'y', 'z']);
     expect(result.get('x')).toMatchObject({ reason: 'not-found' });
     expect(result.get('y')).toMatchObject({ reason: 'not-found' });
     expect(result.has('z')).toBe(false);
@@ -70,21 +70,21 @@ describe('References - Cache', () => {
     now.mockReturnValue(1000);
 
     const cache = createCache(`pers-negexp-${Date.now()}`);
-    await cache.persistNegatives(['x'], 'missing', 500);
+    await cache.storeNegatives(['x'], 'missing', 500);
 
     now.mockReturnValue(1600);
 
-    const result = await cache.readNegatives(['x']);
+    const result = await cache.negatives(['x']);
     expect(result.has('x')).toBe(false);
     now.mockRestore();
   });
 
   it('read returns both positive and negative entries', async () => {
     const cache = createCache(`pers-loadall-${Date.now()}`);
-    await cache.persistPositives([['a', entity('a')]]);
-    await cache.persistNegatives(['b'], 'unauthorized', 60_000);
+    await cache.storePositives([['a', entity('a')]]);
+    await cache.storeNegatives(['b'], 'unauthorized', 60_000);
 
-    const { positive, negative } = await cache.read<Entity>(Infinity);
+    const { positive, negative } = await cache.all(Infinity);
     expect(positive.get('a')).toEqual(entity('a'));
     expect(negative.get('b')).toMatchObject({ reason: 'unauthorized' });
   });
@@ -94,12 +94,12 @@ describe('References - Cache', () => {
     now.mockReturnValue(1000);
 
     const cache = createCache(`pers-loadexp-${Date.now()}`);
-    await cache.persistPositives([['a', entity('a')]]);
-    await cache.persistNegatives(['b'], 'missing', 500);
+    await cache.storePositives([['a', entity('a')]]);
+    await cache.storeNegatives(['b'], 'missing', 500);
 
     now.mockReturnValue(2000);
 
-    const { positive, negative } = await cache.read<Entity>(500);
+    const { positive, negative } = await cache.all(500);
     expect(positive.has('a')).toBe(false);
     expect(negative.has('b')).toBe(false);
     now.mockRestore();
@@ -107,25 +107,25 @@ describe('References - Cache', () => {
 
   it('clearIds removes both positive and negative keys', async () => {
     const cache = createCache(`pers-del-${Date.now()}`);
-    await cache.persistPositives([['a', entity('a')]]);
-    await cache.persistNegatives(['a'], 'not-found', 60_000);
+    await cache.storePositives([['a', entity('a')]]);
+    await cache.storeNegatives(['a'], 'not-found', 60_000);
 
-    await cache.clearIds(['a']);
+    await cache.removeByIds(['a']);
 
-    const positives = await cache.readPositives<Entity>(['a'], Infinity);
-    const negatives = await cache.readNegatives(['a']);
+    const positives = await cache.positives(['a'], Infinity);
+    const negatives = await cache.negatives(['a']);
     expect(positives.has('a')).toBe(false);
     expect(negatives.has('a')).toBe(false);
   });
 
   it('clear removes all positive and negative entries', async () => {
     const cache = createCache(`pers-clear-${Date.now()}`);
-    await cache.persistPositives([['a', entity('a')]]);
-    await cache.persistNegatives(['b'], 'missing', 60_000);
+    await cache.storePositives([['a', entity('a')]]);
+    await cache.storeNegatives(['b'], 'missing', 60_000);
 
     await cache.clear();
 
-    const { positive, negative } = await cache.read<Entity>(Infinity);
+    const { positive, negative } = await cache.all(Infinity);
     expect(positive.size).toBe(0);
     expect(negative.size).toBe(0);
   });
@@ -133,10 +133,10 @@ describe('References - Cache', () => {
   it('handles empty positive and negative arrays gracefully', async () => {
     const cache = createCache(`pers-empty-${Date.now()}`);
 
-    const positives = await cache.readPositives([], Infinity);
-    const negatives = await cache.readNegatives([]);
-    await cache.persistPositives([]);
-    await cache.persistNegatives([], 'missing', 1000);
+    const positives = await cache.positives([], Infinity);
+    const negatives = await cache.negatives([]);
+    await cache.storePositives([]);
+    await cache.storeNegatives([], 'missing', 1000);
 
     expect(positives.size).toBe(0);
     expect(negatives.size).toBe(0);
