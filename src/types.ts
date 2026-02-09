@@ -1,131 +1,92 @@
-import type { Fn, Nil, Nullable } from './common.ts';
+import type { Nil, Nullable } from './common.ts';
 
-export interface SourceOptions<T> {
-  /** Batch fetch items by IDs. */
-  fetch?: (ids: string[]) => Promise<T[]>;
-  /** Load entire dataset at once. */
-  fetchAll?: () => Promise<T[]>;
-  /** Extract ID from an item. Default: `(item) => item.id`. */
-  keyBy?: (item: T) => string;
-  /** Positive cache TTL in ms. */
-  ttl?: number;
-  /** Max IDs per `fetch` call. Chunks automatically if exceeded. */
-  batchSize?: number;
-  /** IDB caching. Default: `true`. */
-  cache?: boolean;
-}
-
-export interface Source<T = unknown> {
-  readonly _type: T;
-}
+export interface Source<_TMarker = unknown> {}
 
 export type SourceRegistry = Record<string, Source>;
+export type SourceOf<TSource extends Source> = TSource extends Source<infer TValue> ? TValue : never;
 
-export type SourceOf<TSource extends Source> = TSource['_type'];
+type StrRef = Nil<string>;
+type ArrRef = Nil<string>[];
+type PotentialRef = StrRef | ArrRef;
 
-export type FnResult<TFn extends Fn> = Awaited<ReturnType<TFn>>;
+type DirectRef<TSources extends SourceRegistry> = keyof TSources;
 
-export type StrRef = Nil<string>;
-export type ArrRef = Nil<string>[];
-export type PotentialRef = StrRef | ArrRef;
+type NestedRef<TSources extends SourceRegistry> = keyof TSources extends infer TSource
+  ? TSource extends DirectRef<TSources>
+    ? { source: TSource; fields: RefFields<SourceOf<TSources[TSource]>, TSources> }
+    : never
+  : never;
 
-export type DirectRef<TSources extends SourceRegistry> = Extract<keyof TSources, string>;
-export type NestedRef<TSources extends SourceRegistry> = {
-  [TSource in keyof TSources]: { source: TSource; fields: RefFields<SourceOf<TSources[TSource]>, TSources> };
-}[keyof TSources];
+type FieldRef<TSources extends SourceRegistry> = DirectRef<TSources> | NestedRef<TSources>;
 
-export type FieldRef<TSources extends SourceRegistry> = DirectRef<TSources> | NestedRef<TSources>;
+export type RefFields<TData, TSources extends SourceRegistry> = TData extends readonly (infer TElement)[]
+  ? RefFields<TElement, TSources>
+  : {
+      [TKey in keyof TData]?: TData[TKey] extends PotentialRef ? FieldRef<TSources> : RefFields<TData[TKey], TSources>;
+    };
 
-export type RefFields<TData, TSources extends SourceRegistry> = {
-  [K in keyof TData]?: TData[K] extends PotentialRef
-    ? FieldRef<TSources>
-    : NonNullable<TData[K]> extends unknown[]
-      ? RefFields<NonNullable<TData[K]>[number], TSources>
-      : NonNullable<TData[K]> extends object
-        ? RefFields<NonNullable<TData[K]>, TSources>
-        : `[Error: '${K & string}' is not a referenceable field]`;
-};
+type TypeKey<TData, TType> = keyof TData extends infer TKey extends string
+  ? TKey extends keyof TData
+    ? TData[TKey] extends TType
+      ? TKey
+      : never
+    : never
+  : never;
 
-type TypeKey<TKey, TValue> = { [K in keyof TKey]: NonNullable<TKey[K]> extends TValue ? K : never }[keyof TKey];
-type StrKey<T extends string> = `${T}T`;
-type ArrKey<T extends string> = `${T}Ts`;
+type StrKey<TKey extends string> = `${TKey}T`;
+type ArrKey<TKey extends string> = `${TKey}Ts`;
 
-type StrKeys<T, TFields> = Extract<TypeKey<T, StrRef>, keyof TFields & string>;
-type ArrKeys<T, TFields> = Extract<TypeKey<T, ArrRef>, keyof TFields & string>;
+type StrKeys<TData> = TypeKey<TData, StrRef>;
+type ArrKeys<TData> = TypeKey<TData, ArrRef>;
 
-type RefKeys<TData, TFields extends RefFields<TData, TSources>, TSources extends SourceRegistry> =
-  | StrKey<StrKeys<TData, TFields>>
-  | ArrKey<ArrKeys<TData, TFields>>;
+type DataKeys<TData> = keyof TData;
+type RefKeys<TData> = StrKey<StrKeys<TData>> | ArrKey<ArrKeys<TData>>;
 
-type ResolveRef<TRef, TSources extends SourceRegistry> = TRef extends string
-  ? SourceOf<TSources[TRef]>
-  : TRef extends { source: infer K extends keyof TSources; fields: infer F }
-    ? ResolvedItem<SourceOf<TSources[K]>, TSources, F & RefFields<SourceOf<TSources[K]>, TSources>>
-    : never;
+type RecordKeys<TData> = DataKeys<TData> | RefKeys<TData>;
 
-type ResolveOriginalField<
+type ResolveRef<TRef, TSources extends SourceRegistry> =
+  TRef extends DirectRef<TSources>
+    ? SourceOf<TSources[TRef]>
+    : TRef extends NestedRef<TSources>
+      ? Resolve<SourceOf<TSources[TRef['source']]>, TSources, TRef['fields']>
+      : never;
+
+type ResolveDataKey<
   TData,
-  TKey extends keyof TData,
+  TKey extends DataKeys<TData>,
   TSources extends SourceRegistry,
   TFields extends RefFields<TData, TSources>,
 > = TKey extends keyof TFields
   ? TData[TKey] extends PotentialRef
     ? TData[TKey]
-    : NonNullable<TData[TKey]> extends unknown[]
-      ? ResolvedItem<NonNullable<NonNullable<TData[TKey]>[number]>, TSources, NonNullable<TFields[TKey]>>[]
-      : ResolvedItem<NonNullable<TData[TKey]>, TSources, NonNullable<TFields[TKey]>>
+    : TFields[TKey] extends RefFields<NonNullable<TData[TKey]>, TSources>
+      ? Resolve<TData[TKey], TSources, TFields[TKey]>
+      : never
   : TData[TKey];
 
-type ResolveRefField<TKey, TSources extends SourceRegistry, TFields> =
+type ResolveRefKey<TKey, TSources extends SourceRegistry, TFields> =
   TKey extends ArrKey<infer TArrKey extends string & keyof TFields>
-    ? Nullable<ResolveRef<TFields[TArrKey], TSources>>[]
+    ? ResolveRef<TFields[TArrKey], TSources>[]
     : TKey extends StrKey<infer TStrKey extends string & keyof TFields>
-      ? Nullable<ResolveRef<TFields[TStrKey], TSources>>
+      ? ResolveRef<TFields[TStrKey], TSources>
       : never;
 
-export type ResolvedItem<TData, TSources extends SourceRegistry, TFields extends RefFields<TData, TSources>> = {
-  [TKey in keyof TData | RefKeys<TData, TFields, TSources>]: TKey extends keyof TData
-    ? ResolveOriginalField<TData, TKey, TSources, TFields>
-    : ResolveRefField<TKey, TSources, TFields>;
+type ResolveRecord<TData, TSources extends SourceRegistry, TFields extends RefFields<TData, TSources>> = {
+  [TKey in RecordKeys<TData>]: TKey extends DataKeys<TData>
+    ? ResolveDataKey<TData, TKey, TSources, TFields>
+    : Nullable<ResolveRefKey<TKey, TSources, TFields>>;
 };
 
-export interface ResolvedFn<
-  TFn extends Fn,
+type ResolveArray<
+  TData extends readonly unknown[],
   TSources extends SourceRegistry,
-  TFields extends RefFields<Awaited<ReturnType<TFn>>, TSources>,
-> {
-  (...params: Parameters<TFn>): Promise<ResolvedItem<Awaited<ReturnType<TFn>>, TSources, TFields>>;
-}
+  TFields extends RefFields<TData, TSources>,
+> = Resolve<TData[number], TSources, TFields>[];
 
-export interface References<TSources extends SourceRegistry> {
-  inline<TItem, TFields extends RefFields<TItem, TSources>, TResult = ResolvedItem<TItem, TSources, TFields>>(
-    item: TItem,
-    options: {
-      fields: TFields;
-      transform?: (result: ResolvedItem<TItem, TSources, NoInfer<TFields>>) => TResult;
-    },
-  ): Promise<TResult>;
-  fn<
-    TFn extends Fn,
-    TFields extends RefFields<FnResult<TFn>, TSources>,
-    TResult = ResolvedItem<FnResult<TFn>, TSources, TFields>,
-  >(
-    fn: TFn,
-    options: {
-      fields: TFields;
-      transform?: (result: ResolvedItem<FnResult<TFn>, TSources, NoInfer<TFields>>) => TResult;
-    },
-  ): (...params: Parameters<TFn>) => Promise<TResult>;
-  invalidate(source: Extract<keyof TSources, string>, ids?: string[]): void;
-  clear(): Promise<void>;
-}
-
-export interface SourcesBuilderContext {
-  source<T>(options: SourceOptions<T>): Source<T>;
-}
-
-export type ResolveOf<TType extends (...params: any[]) => Promise<any>> = TType extends (
-  ...params: any[]
-) => Promise<infer TData>
+export type Resolve<TData, TSources extends SourceRegistry, TFields extends RefFields<TData, TSources>> = TData extends
+  | null
+  | undefined
   ? TData
-  : never;
+  : TData extends readonly unknown[]
+    ? ResolveArray<TData, TSources, TFields>
+    : ResolveRecord<TData, TSources, TFields>;

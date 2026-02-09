@@ -166,7 +166,7 @@ describe('References - Cache', () => {
       name: storeName,
       fetch: fetch1,
       cache: true,
-      ttl: 60_000,
+      ttlMs: 60_000,
     });
     await store1.resolve(['missing']);
     expect(fetch1).toHaveBeenCalledTimes(1);
@@ -176,7 +176,7 @@ describe('References - Cache', () => {
       name: storeName,
       fetch: fetch2,
       cache: true,
-      ttl: 60_000,
+      ttlMs: 60_000,
     });
     const result = await store2.resolve(['missing']);
 

@@ -7,5 +7,5 @@
     "types": ["vitest"]
   },
   "include": ["src"],
-  "exclude": ["node_modules", "build", "src/**/*.test.ts", "src/**/*.bench.ts", "src/vitest-setup.ts"]
+  "exclude": ["node_modules", "build", "src/**/*.test.ts", "src/**/*.bench.ts", "src/vitest-setup.ts", "src/samples"]
 }

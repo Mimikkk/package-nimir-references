@@ -10,17 +10,17 @@ export class SourceStore<T = unknown> {
   private lastWarmUp = 0;
 
   private constructor(
-    private readonly mem = new Map<string, T>(),
-    private readonly negCache = new Map<string, NegativeEntry>(),
+    private readonly positives = new Map<string, T>(),
+    private readonly negatives = new Map<string, NegativeEntry>(),
     private readonly inflight = new Map<string, Promise<T | null>>(),
     private readonly cache: SourceCache<any> | null,
     private readonly keyBy: (item: T) => string,
     private readonly ttl: number,
     private readonly batchSize: number,
-    private readonly options: SourceOptions<T>,
+    private readonly options: SourceStoreOptions<T>,
   ) {}
 
-  public static from<T>(options: SourceOptions<T>): SourceStore<T> {
+  public static from<T>(options: SourceStoreOptions<T>): SourceStore<T> {
     return new SourceStore(
       new Map<string, T>(),
       new Map<string, NegativeEntry>(),
@@ -38,25 +38,26 @@ export class SourceStore<T = unknown> {
     return this.resolveFetch(ids);
   }
 
-  invalidate(ids?: string[]): void {
+  async invalidate(ids?: string[]): Promise<void> {
     if (ids) {
       for (const id of ids) {
-        this.mem.delete(id);
-        this.negCache.delete(id);
+        this.positives.delete(id);
+        this.negatives.delete(id);
       }
-      this.cache?.clearIds(ids).catch(FcNoop);
+
+      await this.cache?.clearIds(ids).catch(FcNoop);
     } else {
-      this.mem.clear();
-      this.negCache.clear();
+      this.positives.clear();
+      this.negatives.clear();
       this.warmUpPromise = null;
       this.lastWarmUp = 0;
-      this.cache?.clear().catch(FcNoop);
+      await this.cache?.clear().catch(FcNoop);
     }
   }
 
   async clearAll(): Promise<void> {
-    this.mem.clear();
-    this.negCache.clear();
+    this.positives.clear();
+    this.negatives.clear();
     this.inflight.clear();
     this.warmUpPromise = null;
     this.lastWarmUp = 0;
@@ -74,7 +75,7 @@ export class SourceStore<T = unknown> {
 
     const result = new Map<string, T | null>();
     for (const id of ids) {
-      result.set(id, this.mem.get(id) ?? null);
+      result.set(id, this.positives.get(id) ?? null);
     }
     return result;
   }
@@ -93,21 +94,21 @@ export class SourceStore<T = unknown> {
     if (this.cache) {
       const { positive, negative } = await this.cache.read<T>(ttl);
       if (positive.size > 0) {
-        for (const [id, item] of positive) this.mem.set(id, item);
-        for (const [id, entry] of negative) this.negCache.set(id, entry);
+        for (const [id, item] of positive) this.positives.set(id, item);
+        for (const [id, entry] of negative) this.negatives.set(id, entry);
         this.lastWarmUp = Date.now();
         return;
       }
     }
 
     const items = await this.options.fetchAll!();
-    this.mem.clear();
-    this.negCache.clear();
+    this.positives.clear();
+    this.negatives.clear();
 
     const entries: [string, T][] = [];
     for (const item of items) {
       const id = this.keyBy(item);
-      this.mem.set(id, item);
+      this.positives.set(id, item);
       entries.push([id, item]);
     }
 
@@ -121,19 +122,19 @@ export class SourceStore<T = unknown> {
     const remaining: string[] = [];
 
     for (const id of ids) {
-      const cached = this.mem.get(id);
+      const cached = this.positives.get(id);
       if (cached !== undefined) {
         result.set(id, cached);
         continue;
       }
 
-      const neg = this.negCache.get(id);
+      const neg = this.negatives.get(id);
       if (neg) {
         if (Date.now() < neg.expiry) {
           result.set(id, null);
           continue;
         }
-        this.negCache.delete(id);
+        this.negatives.delete(id);
       }
 
       const pending = this.inflight.get(id);
@@ -205,7 +206,7 @@ export class SourceStore<T = unknown> {
     for (const id of ids) {
       const item = positives.get(id);
       if (item !== undefined) {
-        this.mem.set(id, item);
+        this.positives.set(id, item);
         result.set(id, item);
         deferreds.get(id)!(item);
       } else {
@@ -221,7 +222,7 @@ export class SourceStore<T = unknown> {
     for (const id of afterPositive) {
       const entry = negatives.get(id);
       if (entry) {
-        this.negCache.set(id, entry);
+        this.negatives.set(id, entry);
         result.set(id, null);
         deferreds.get(id)!(null);
       } else {
@@ -244,7 +245,7 @@ export class SourceStore<T = unknown> {
     for (const item of items) {
       const id = this.keyBy(item);
       fetchedIds.add(id);
-      this.mem.set(id, item);
+      this.positives.set(id, item);
       result.set(id, item);
       deferreds.get(id)?.(item);
       entries.push([id, item]);
@@ -270,7 +271,7 @@ export class SourceStore<T = unknown> {
     const expiry = Date.now() + ttl;
 
     for (const id of ids) {
-      this.negCache.set(id, { reason, expiry });
+      this.negatives.set(id, { reason, expiry });
       result.set(id, null);
       deferreds.get(id)?.(null);
     }
@@ -317,7 +318,7 @@ export class SourceStore<T = unknown> {
   }
 }
 
-export interface SourceOptions<T> {
+export interface SourceStoreOptions<T> {
   /** Batch fetch items by IDs. */
   fetch?: (ids: string[]) => Promise<T[]>;
   /** Load entire dataset at once. */

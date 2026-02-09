@@ -1,17 +1,27 @@
 import type { Nil } from './common.ts';
 
 import type { SourceStore } from './store.ts';
+import { RefFields, Resolve, SourceRegistry } from './types.ts';
 
-export class SourceResolver {
+export class SourceResolver<TSources extends SourceRegistry> {
   private constructor(private readonly stores: ReadonlyMap<string, SourceStore>) {}
 
-  public static from(stores: ReadonlyMap<string, SourceStore>): SourceResolver {
+  public static from<TSources extends SourceRegistry>(
+    stores: ReadonlyMap<Extract<keyof TSources, string>, SourceStore>,
+  ): SourceResolver<TSources> {
     return new SourceResolver(stores);
   }
 
-  async resolve<T>(item: T, fields: Fields): Promise<T> {
+  async resolve<TData, TFields extends RefFields<TData, TSources>>(
+    item: TData,
+    fields: TFields,
+  ): Promise<Resolve<TData, TSources, TFields> | Extract<TData, null | undefined>> {
+    if (item === null || item === undefined) return null!;
     const result = structuredClone(item) as Target;
-    const queue: { target: Target; fields: Fields }[] = [{ target: result, fields }];
+
+    const queue: { target: Target; fields: RefFields<unknown, TSources> }[] = Array.isArray(result)
+      ? result.map(target => ({ target, fields }))
+      : [{ target: result, fields }];
     let depth = 0;
 
     while (queue.length > 0) {
@@ -25,7 +35,7 @@ export class SourceResolver {
       const references: Ref[] = [];
 
       for (const item of level) {
-        this.collectreferences(item.target, item.fields, sourceIdsMaps, references);
+        this.collect(item.target, item.fields, sourceIdsMaps, references);
       }
 
       if (references.length === 0) break;
@@ -69,15 +79,10 @@ export class SourceResolver {
       }
     }
 
-    return result as T;
+    return result as Extract<Resolve<TData, TSources, TFields>, null | undefined>;
   }
 
-  private collectreferences(
-    target: Target,
-    fields: Fields,
-    sourceIdsMaps: Map<string, Set<string>>,
-    references: Ref[],
-  ): void {
+  private collect(target: Target, fields: Fields, sourceIdsMaps: Map<string, Set<string>>, references: Ref[]): void {
     for (const [property, field] of Object.entries(fields)) {
       const value = target[property];
       if (value === undefined || value === null) continue;
@@ -98,11 +103,11 @@ export class SourceResolver {
         if (Array.isArray(value)) {
           for (const child of value) {
             if (child && typeof child === 'object') {
-              this.collectreferences(child as Target, field as Fields, sourceIdsMaps, references);
+              this.collect(child as Target, field as Fields, sourceIdsMaps, references);
             }
           }
         } else if (typeof value === 'object') {
-          this.collectreferences(value as Target, field as Fields, sourceIdsMaps, references);
+          this.collect(value as Target, field as Fields, sourceIdsMaps, references);
         }
       }
     }

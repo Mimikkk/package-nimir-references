@@ -19,11 +19,10 @@ function mockStore(items: Entity[]): SourceStore<Entity> {
   });
 }
 
-async function resolverFrom(configs: Record<string, Entity[]>): Promise<SourceResolver> {
+function createResolver(configs: Record<string, Entity[]>): SourceResolver<any> {
   const stores = new Map<string, SourceStore>();
   for (const [name, items] of Object.entries(configs)) {
     const store = mockStore(items);
-    await store.resolve([]);
     stores.set(name, store as SourceStore);
   }
   return SourceResolver.from(stores);
@@ -31,7 +30,7 @@ async function resolverFrom(configs: Record<string, Entity[]>): Promise<SourceRe
 
 describe('References - Resolver', () => {
   it('resolves a direct single ref (string → T)', async () => {
-    const resolver = await resolverFrom({ Faculty: [a1, a2] });
+    const resolver = createResolver({ Faculty: [a1, a2] });
     const item = { facultyId: 'f1', other: 42 };
     const result = await resolver.resolve(item, { facultyId: 'Faculty' });
 
@@ -42,8 +41,18 @@ describe('References - Resolver', () => {
     });
   });
 
+  it('resolves an array of direct refs (string[] → Ts[])', async () => {
+    const resolver = createResolver({ Faculty: [a1, a2] });
+    const result = await resolver.resolve([{ id: a1.id }, { id: a2.id }], { id: 'Faculty' });
+
+    expect(result).toEqual([
+      { id: a1.id, idT: a1 },
+      { id: a2.id, idT: a2 },
+    ]);
+  });
+
   it('resolves a direct array ref (string[] → Ts)', async () => {
-    const resolver = await resolverFrom({ Faculty: [a1, a2] });
+    const resolver = createResolver({ Faculty: [a1, a2] });
     const item = { facultyIds: ['f1', 'f2'] };
     const result = await resolver.resolve(item, { facultyIds: 'Faculty' });
 
@@ -54,7 +63,7 @@ describe('References - Resolver', () => {
   });
 
   it('resolves multiple fields from different sources in parallel', async () => {
-    const resolver = await resolverFrom({
+    const resolver = createResolver({
       Faculty: [a1],
       Branch: [b1],
     });
@@ -70,7 +79,7 @@ describe('References - Resolver', () => {
   });
 
   it('resolves null/undefined fields as null T', async () => {
-    const resolver = await resolverFrom({ Faculty: [a1] });
+    const resolver = createResolver({ Faculty: [a1] });
     const item = { facultyId: null as string | null, branchId: undefined as string | undefined };
     const result: any = await resolver.resolve(item, { facultyId: 'Faculty', branchId: 'Faculty' });
 
@@ -79,7 +88,7 @@ describe('References - Resolver', () => {
   });
 
   it('resolves missing IDs as null', async () => {
-    const resolver = await resolverFrom({ Faculty: [a1] });
+    const resolver = createResolver({ Faculty: [a1] });
     const item = { facultyId: 'nonexistent' };
     const result: any = await resolver.resolve(item, { facultyId: 'Faculty' });
 
@@ -87,7 +96,7 @@ describe('References - Resolver', () => {
   });
 
   it('handles structural nesting into sub-objects', async () => {
-    const resolver = await resolverFrom({ Faculty: [a1] });
+    const resolver = createResolver({ Faculty: [a1] });
     const item = { nested: { deepId: 'f1' } };
     const result = await resolver.resolve(item, { nested: { deepId: 'Faculty' } });
 
@@ -97,7 +106,7 @@ describe('References - Resolver', () => {
   });
 
   it('handles structural nesting into arrays of objects', async () => {
-    const resolver = await resolverFrom({ Faculty: [a1, a2] });
+    const resolver = createResolver({ Faculty: [a1, a2] });
     const item = { items: [{ fId: 'f1' }, { fId: 'f2' }] };
     const result = await resolver.resolve(item, { items: { fId: 'Faculty' } });
 
@@ -111,7 +120,7 @@ describe('References - Resolver', () => {
 
   it('handles nested references (multi-step resolution)', async () => {
     const branch1 = { id: 'b1', facultyId: 'f1' };
-    const resolver = await resolverFrom({
+    const resolver = createResolver({
       Branch: [branch1],
       Faculty: [a1],
     });
@@ -128,7 +137,7 @@ describe('References - Resolver', () => {
   it('handles array nested references (multi-step, array IDs → resolved children)', async () => {
     const b1 = { id: 'b1', facultyId: 'f1' };
     const b2 = { id: 'b2', facultyId: 'f2' };
-    const resolver = await resolverFrom({
+    const resolver = createResolver({
       Branch: [b1 as any, b2 as any],
       Faculty: [a1, a2],
     });
@@ -144,7 +153,7 @@ describe('References - Resolver', () => {
   });
 
   it('does not mutate the original item (structuredClone)', async () => {
-    const resolver = await resolverFrom({ Faculty: [a1] });
+    const resolver = createResolver({ Faculty: [a1] });
     const item = { facultyId: 'f1' };
     const result = await resolver.resolve(item, { facultyId: 'Faculty' });
 
@@ -153,7 +162,7 @@ describe('References - Resolver', () => {
   });
 
   it('handles deeply nested structural + ref chains', async () => {
-    const resolver = await resolverFrom({ Faculty: [a1] });
+    const resolver = createResolver({ Faculty: [a1] });
     const item = { a: { b: [{ c: { fId: 'f1' } }] } };
     const result = await resolver.resolve(item, { a: { b: { c: { fId: 'Faculty' } } } });
 
@@ -161,7 +170,7 @@ describe('References - Resolver', () => {
   });
 
   it('handles empty arrays gracefully', async () => {
-    const resolver = await resolverFrom({ Faculty: [a1] });
+    const resolver = createResolver({ Faculty: [a1] });
     const item = { ids: [] as string[] };
     const result = await resolver.resolve(item, { ids: 'Faculty' });
 
@@ -169,7 +178,7 @@ describe('References - Resolver', () => {
   });
 
   it('skips unknown source names without crashing', async () => {
-    const resolver = await resolverFrom({});
+    const resolver = createResolver({});
     const item = { fId: 'f1' };
     const result = await resolver.resolve(item, { fId: 'NonExistent' });
 
@@ -179,7 +188,7 @@ describe('References - Resolver', () => {
   it('stops at MAX_RESOLVE_DEPTH to prevent infinite loops from deep/circular configs', async () => {
     const a = { id: 'a1', bId: 'b1' };
     const b = { id: 'b1', aId: 'a1' };
-    const resolver = await resolverFrom({ A: [a], B: [b] });
+    const resolver = createResolver({ A: [a], B: [b] });
 
     let fields: any = 'B';
     for (let i = 0; i < 12; i++) {
@@ -193,5 +202,18 @@ describe('References - Resolver', () => {
     const result: any = await resolver.resolve(item, fields);
 
     expect(result.aIdT).toBeTruthy();
+  });
+
+  it('resolves a nested array of refs (array of objects → array of objects with refs)', async () => {
+    const resolver = createResolver({ Faculty: [a1, a2] });
+    const item = { items: [{ fId: 'f1' }, { fId: 'f2' }] };
+    const result = await resolver.resolve(item, { items: { fId: 'Faculty' } });
+
+    expect(result).toEqual({
+      items: [
+        { fId: 'f1', fIdT: a1 },
+        { fId: 'f2', fIdT: a2 },
+      ],
+    });
   });
 });
