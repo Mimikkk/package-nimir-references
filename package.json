@@ -34,10 +34,15 @@
       "require": "./build/references.cjs.js",
       "default": "./build/references.es.js"
     },
-    "./indexeddb": {
-      "types": "./build/indexeddb.d.ts",
-      "require": "./build/indexeddb.cjs.js",
-      "default": "./build/indexeddb.es.js"
+    "./idb-keyval": {
+      "types": "./build/idb-keyval.d.ts",
+      "require": "./build/idb-keyval.cjs.js",
+      "default": "./build/idb-keyval.es.js"
+    },
+    "./in-memory": {
+      "types": "./build/in-memory.d.ts",
+      "require": "./build/in-memory.cjs.js",
+      "default": "./build/in-memory.es.js"
     }
   },
   "main": "./build/references.cjs.js",

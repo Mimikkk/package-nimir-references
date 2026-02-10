@@ -1,6 +1,6 @@
 import type { Fn } from './common.ts';
 import { ReferenceResolver } from './referenceResolver.ts';
-import { ResourceStore, type ResourceStoreOptions } from './store/resourceStore.ts';
+import { ReferenceStore, type ResourceStoreOptions } from './store/resourceStore.ts';
 import type { RefFields, Resolve, Source, SourceRegistry } from './types.ts';
 
 type FnAwait<TFn extends Fn> = Awaited<ReturnType<TFn>>;
@@ -42,7 +42,7 @@ class API<TSources extends SourceRegistry> implements References<TSources> {
     private readonly resolver: ReferenceResolver<TSources>,
   ) {}
 
-  static new<TSources extends SourceRegistry>(
+  static from<TSources extends SourceRegistry>(
     stores: ReadonlyMap<string, Source>,
     resolver: ReferenceResolver<TSources>,
   ): API<TSources> {
@@ -91,7 +91,7 @@ export interface SourcesBuilderContext {
 
 const builder: SourcesBuilderContext = {
   source<TData>(options: ResourceStoreOptions<TData>): Source<TData> {
-    return ResourceStore.new(options);
+    return ReferenceStore.from(options);
   },
 };
 
@@ -99,6 +99,6 @@ export function defineReferences<TSources extends SourceRegistry>(
   sources: (context: SourcesBuilderContext) => TSources,
 ): References<TSources> {
   const stores = new Map(Object.entries(sources(builder)) as [Extract<keyof TSources, string>, Source][]);
-  const resolver = ReferenceResolver.new<TSources>(stores);
-  return API.new(stores, resolver) as References<TSources>;
+  const resolver = ReferenceResolver.from<TSources>(stores);
+  return API.from(stores, resolver) as References<TSources>;
 }

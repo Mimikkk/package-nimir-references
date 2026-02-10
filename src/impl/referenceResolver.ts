@@ -38,7 +38,7 @@ function addSourceIds(map: Map<string, Set<string>>, source: string, values: unk
 export class ReferenceResolver<TSources extends SourceRegistry> {
   private constructor(private readonly sources: ReadonlyMap<string, Source>) {}
 
-  static new<TSources extends SourceRegistry>(
+  static from<TSources extends SourceRegistry>(
     sources: ReadonlyMap<Extract<keyof TSources, string>, Source>,
   ): ReferenceResolver<TSources> {
     return new ReferenceResolver(sources);

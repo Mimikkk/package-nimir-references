@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { ReferenceResolver } from './referenceResolver.ts';
-import { ResourceStore } from './store/resourceStore.ts';
+import { ReferenceStore } from './store/resourceStore.ts';
+import type { SourceRegistry } from './types.ts';
 
 type Entity = { id: string };
 
@@ -11,18 +12,14 @@ const a1 = entity('f1');
 const a2 = entity('f2');
 const b1 = entity('b1');
 
-function mockStore(items: Entity[]): ResourceStore<Entity> {
-  return ResourceStore.from<Entity>({ fetchAll: () => items });
-}
-
-function createResolver(configs: Record<string, Entity[]>): ReferenceResolver<any> {
-  const stores = new Map<string, ResourceStore>();
+function createResolver(configs: Record<string, Entity[]>): ReferenceResolver<SourceRegistry> {
+  const stores = new Map<string, ReferenceStore<Entity>>();
   for (const [name, items] of Object.entries(configs)) {
-    const store = mockStore(items);
-    stores.set(name, store as ResourceStore);
+    const store = ReferenceStore.from({ fetchAll: () => items });
+    stores.set(name, store);
   }
 
-  return ReferenceResolver.new(stores);
+  return ReferenceResolver.from(stores);
 }
 
 describe('References - Resolver', () => {

@@ -1,25 +1,7 @@
-import { FcNoop } from '../common.ts';
-import type { NegativeEntry, NegativeReason, ResourceCache } from '../referenceCache.ts';
+import type { Awaitable } from '../common.ts';
+import type { NegativeEntry, NegativeReason, ReferenceCache } from '../referenceCache.ts';
 
-export function readHttpStatus(error: unknown): number | undefined {
-  if (!error || typeof error !== 'object') return undefined;
-
-  const direct = (error as Record<string, unknown>).status;
-  if (typeof direct === 'number') return direct;
-
-  const response = (error as Record<string, unknown>).response;
-  if (typeof response !== 'object' || response === null) return undefined;
-
-  const nested = (response as Record<string, unknown>).status;
-  return typeof nested === 'number' ? nested : undefined;
-}
-
-export function statusToNegativeReason(status: number): NegativeReason {
-  if (status === 401 || status === 403) return 'unauthorized';
-  if (status === 404) return 'not-found';
-  if (status >= 500) return 'internal-server-error';
-  return 'missing';
-}
+export const FcNoop = () => {};
 
 export interface ResourceStoreStrategy<TResource> {
   resolve(ids: string[]): Promise<Map<string, TResource | null>>;
@@ -27,19 +9,14 @@ export interface ResourceStoreStrategy<TResource> {
   clearAll(): Promise<void>;
 }
 
-export interface SharedOptions<TResource> {
-  cache: ResourceCache<TResource> | null;
+export interface StrategyOptions<TResource> {
+  cache: ReferenceCache<TResource> | null;
   keyBy: (item: TResource) => string;
   ttlMs: number;
 }
 
-export interface FetchByIdsOptions<TResource> extends SharedOptions<TResource> {
-  batchSize: number;
-  fetchByIds: (ids: string[]) => TResource[] | Promise<TResource[]>;
-}
-
-export interface FetchAllOptions<TResource> extends SharedOptions<TResource> {
-  fetchAll: () => TResource[] | Promise<TResource[]>;
+export interface FetchAllOptions<TResource> extends StrategyOptions<TResource> {
+  fetchAll: () => Awaitable<TResource[]>;
 }
 
 export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResource> {
@@ -49,10 +26,10 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
   private readonly negatives = new Map<string, NegativeEntry>();
 
   private constructor(
-    private readonly cache: ResourceCache<TResource> | null,
+    private readonly cache: ReferenceCache<TResource> | null,
     private readonly keyBy: (item: TResource) => string,
     private readonly ttlMs: number,
-    private readonly fetchAll: () => TResource[] | Promise<TResource[]>,
+    private readonly fetchAll: () => Awaitable<TResource[]>,
   ) {}
 
   static new<TResource>(options: FetchAllOptions<TResource>): FetchAllStrategy<TResource> {
@@ -131,17 +108,22 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
   }
 }
 
+export interface FetchByIdsOptions<TResource> extends StrategyOptions<TResource> {
+  batchSize: number;
+  fetchByIds: (ids: string[]) => Awaitable<TResource[]>;
+}
+
 export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TResource> {
   private readonly positives = new Map<string, TResource>();
   private readonly negatives = new Map<string, NegativeEntry>();
   private readonly inflight = new Map<string, Promise<TResource | null>>();
 
   private constructor(
-    private readonly cache: ResourceCache<TResource> | null,
+    private readonly cache: ReferenceCache<TResource> | null,
     private readonly keyBy: (item: TResource) => string,
     private readonly ttlMs: number,
     private readonly batchSize: number,
-    private readonly fetchByIds: (ids: string[]) => TResource[] | Promise<TResource[]>,
+    private readonly fetchByIds: (ids: string[]) => Awaitable<TResource[]>,
   ) {}
 
   static new<TResource>(options: FetchByIdsOptions<TResource>): FetchByIdsStrategy<TResource> {
@@ -356,4 +338,24 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
     const results = await Promise.all(chunks.map(chunk => this.fetchByIds(chunk)));
     return results.flat();
   }
+}
+
+function readHttpStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+
+  const direct = (error as Record<string, unknown>).status;
+  if (typeof direct === 'number') return direct;
+
+  const response = (error as Record<string, unknown>).response;
+  if (typeof response !== 'object' || response === null) return undefined;
+
+  const nested = (response as Record<string, unknown>).status;
+  return typeof nested === 'number' ? nested : undefined;
+}
+
+function statusToNegativeReason(status: number): NegativeReason {
+  if (status === 401 || status === 403) return 'unauthorized';
+  if (status === 404) return 'not-found';
+  if (status >= 500) return 'internal-server-error';
+  return 'missing';
 }

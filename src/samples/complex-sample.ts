@@ -1,5 +1,5 @@
 import { defineReferences, type SourcesBuilderContext } from '../exports/lib.ts';
-import type { RefFields, Resolve, SourceRegistry } from '../types.ts';
+import type { RefFields, Resolve, SourceRegistry } from '../impl/types.ts';
 
 type Id = string;
 type RefId = Id | null | undefined;

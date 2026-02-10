@@ -1,7 +1,7 @@
-import type { Nil, Nullable } from './common.ts';
+import type { Awaitable, Nil, Nullable } from './common.ts';
 
 export interface Source<TResource = unknown> {
-  resolve(ids: string[]): Promise<Map<string, TResource | null>>;
+  resolve(ids: string[]): Awaitable<Map<string, TResource | null>>;
   invalidate(ids?: string[]): Promise<void>;
   clearAll(): Promise<void>;
 }

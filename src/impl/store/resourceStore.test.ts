@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { ResourceStore } from './resourceStore.ts';
+import { ReferenceStore } from './resourceStore.ts';
 
 type Entity = { id: string };
 
@@ -12,7 +12,7 @@ const a2 = entity('a2');
 describe('References - SourceStore', () => {
   describe('fetchAll mode', () => {
     it('resolves IDs after warm-up', async () => {
-      const store = ResourceStore.from<Entity>({ fetchAll: async () => [a1, a2] });
+      const store = ReferenceStore.from<Entity>({ fetchAll: async () => [a1, a2] });
 
       const result = await store.resolve([a1.id, a2.id]);
 
@@ -21,7 +21,7 @@ describe('References - SourceStore', () => {
     });
 
     it('returns null for IDs not in the dataset', async () => {
-      const store = ResourceStore.from<Entity>({ fetchAll: async () => [a1] });
+      const store = ReferenceStore.from<Entity>({ fetchAll: async () => [a1] });
 
       const result = await store.resolve([a1.id, 'missing']);
 
@@ -31,7 +31,7 @@ describe('References - SourceStore', () => {
 
     it('calls fetchAll only once (dedup)', async () => {
       const fetchAll = vi.fn(async () => [a1]);
-      const store = ResourceStore.from<Entity>({ fetchAll });
+      const store = ReferenceStore.from<Entity>({ fetchAll });
 
       await Promise.all([store.resolve([a1.id]), store.resolve([a1.id]), store.resolve([a1.id])]);
 
@@ -40,7 +40,7 @@ describe('References - SourceStore', () => {
 
     it('uses custom key function', async () => {
       const items = [{ code: 'X', label: 'X Label' }];
-      const store = ResourceStore.from<(typeof items)[0]>({ fetchAll: async () => items, keyBy: i => i.code });
+      const store = ReferenceStore.from<(typeof items)[0]>({ fetchAll: async () => items, keyBy: i => i.code });
 
       const result = await store.resolve(['X']);
 
@@ -51,7 +51,7 @@ describe('References - SourceStore', () => {
   describe('fetch mode', () => {
     it('fetches and caches items by ID', async () => {
       const fetch = vi.fn(async (ids: string[]) => ids.map(entity));
-      const store = ResourceStore.from<Entity>({ fetchByIds: fetch });
+      const store = ReferenceStore.from<Entity>({ fetchByIds: fetch });
 
       const result = await store.resolve(['a', 'b']);
 
@@ -63,7 +63,7 @@ describe('References - SourceStore', () => {
 
     it('serves subsequent requests from mem cache', async () => {
       const fetch = vi.fn(async (ids: string[]) => ids.map(entity));
-      const store = ResourceStore.from<Entity>({ fetchByIds: fetch });
+      const store = ReferenceStore.from<Entity>({ fetchByIds: fetch });
 
       await store.resolve(['a']);
       const result = await store.resolve(['a']);
@@ -74,7 +74,7 @@ describe('References - SourceStore', () => {
 
     it('marks missing IDs as negative and does not re-fetch', async () => {
       const fetch = vi.fn(async () => []);
-      const store = ResourceStore.from<Entity>({ fetchByIds: fetch });
+      const store = ReferenceStore.from<Entity>({ fetchByIds: fetch });
 
       const r1 = await store.resolve(['missing']);
       expect(r1.get('missing')).toBeNull();
@@ -90,7 +90,7 @@ describe('References - SourceStore', () => {
       const negativeTtl = 1;
 
       const fetch = vi.fn(async () => []);
-      const store = ResourceStore.from<Entity>({ fetchByIds: fetch, ttlMs: 1 });
+      const store = ReferenceStore.from<Entity>({ fetchByIds: fetch, ttlMs: 1 });
 
       await store.resolve(['x']);
       expect(fetch).toHaveBeenCalledTimes(1);
@@ -107,7 +107,7 @@ describe('References - SourceStore', () => {
       const fetch = vi.fn(async () => {
         throw Object.assign(new Error(), { status: 403 });
       });
-      const store = ResourceStore.from<Entity>({ fetchByIds: fetch });
+      const store = ReferenceStore.from<Entity>({ fetchByIds: fetch });
 
       const r1 = await store.resolve(['x']);
       expect(r1.get('x')).toBeNull();
@@ -121,7 +121,7 @@ describe('References - SourceStore', () => {
       const fetch = vi.fn(async () => {
         throw Object.assign(new Error(), { status: 404 });
       });
-      const store = ResourceStore.from<Entity>({ fetchByIds: fetch });
+      const store = ReferenceStore.from<Entity>({ fetchByIds: fetch });
 
       const result = await store.resolve(['x']);
       expect(result.get('x')).toBeNull();
@@ -131,7 +131,7 @@ describe('References - SourceStore', () => {
       const fetch = vi.fn(async () => {
         throw Object.assign(new Error(), { status: 500 });
       });
-      const store = ResourceStore.from<Entity>({ fetchByIds: fetch });
+      const store = ReferenceStore.from<Entity>({ fetchByIds: fetch });
 
       const result = await store.resolve(['x']);
       expect(result.get('x')).toBeNull();
@@ -142,7 +142,7 @@ describe('References - SourceStore', () => {
       const fetch = vi.fn(async (ids: string[]) => ids.map(entity));
 
       const batchSize = 2;
-      const store = ResourceStore.from<Entity>({ fetchByIds: fetch, batchSize });
+      const store = ReferenceStore.from<Entity>({ fetchByIds: fetch, batchSize });
 
       const items = ['a', 'b', 'c', 'd', 'e'];
       const batchCount = Math.ceil(items.length / batchSize);
@@ -159,7 +159,7 @@ describe('References - SourceStore', () => {
       const resolvers = Promise.withResolvers<Entity[]>();
 
       const fetch = vi.fn(() => resolvers.promise);
-      const store = ResourceStore.from<Entity>({ fetchByIds: fetch });
+      const store = ReferenceStore.from<Entity>({ fetchByIds: fetch });
 
       const p1 = store.resolve(['a']);
       const p2 = store.resolve(['a']);
@@ -176,7 +176,7 @@ describe('References - SourceStore', () => {
   describe('invalidation', () => {
     it('invalidate(ids) clears specific entries from cache', async () => {
       const fetch = vi.fn(async (ids: string[]) => ids.map(entity));
-      const store = ResourceStore.from<Entity>({ fetchByIds: fetch });
+      const store = ReferenceStore.from<Entity>({ fetchByIds: fetch });
 
       await store.resolve(['a', 'b']);
       expect(fetch).toHaveBeenCalledTimes(1);
@@ -190,7 +190,7 @@ describe('References - SourceStore', () => {
 
     it('invalidate() without ids clears all', async () => {
       const fetch = vi.fn(async (ids: string[]) => ids.map(entity));
-      const store = ResourceStore.from<Entity>({ fetchByIds: fetch });
+      const store = ReferenceStore.from<Entity>({ fetchByIds: fetch });
 
       await store.resolve(['a', 'b']);
       await store.invalidate();
@@ -202,7 +202,7 @@ describe('References - SourceStore', () => {
 
     it('invalidate clears negative cache entries too', async () => {
       const fetch = vi.fn(async () => []);
-      const store = ResourceStore.from<Entity>({ fetchByIds: fetch });
+      const store = ReferenceStore.from<Entity>({ fetchByIds: fetch });
 
       await store.resolve(['x']);
       expect(fetch).toHaveBeenCalledTimes(1);
@@ -221,7 +221,7 @@ describe('References - SourceStore', () => {
         if (++callCount === 1) throw new Error(ErrorMessage);
         return [a1];
       });
-      const store = ResourceStore.from<Entity>({ fetchAll });
+      const store = ReferenceStore.from<Entity>({ fetchAll });
 
       await expect(store.resolve([a1.id])).rejects.toThrow(ErrorMessage);
 
@@ -232,7 +232,7 @@ describe('References - SourceStore', () => {
 
     it('clearAll resets everything', async () => {
       const fetchAll = vi.fn(async () => [a1]);
-      const store = ResourceStore.from<Entity>({ fetchAll });
+      const store = ReferenceStore.from<Entity>({ fetchAll });
 
       await store.resolve([a1.id]);
       expect(fetchAll).toHaveBeenCalledTimes(1);

@@ -5,19 +5,19 @@ export {
   type ResolveFn,
   type ResolveOf,
   type SourcesBuilderContext,
-} from '../defineReferences.ts';
+} from '../impl/defineReferences.ts';
 export {
-  ResourceCache,
+  ReferenceCache as ResourceCache,
   type NegativeEntry,
   type NegativeReason,
   type PositiveEntry,
   type ResourceEntry,
-} from '../referenceCache.ts';
-export { ReferenceResolver } from '../referenceResolver.ts';
+} from '../impl/referenceCache.ts';
+export { ReferenceResolver } from '../impl/referenceResolver.ts';
 export {
-  ResourceStore,
+  ReferenceStore as ResourceStore,
   type FetchAllStrategyOptions,
   type FetchByIdsStrategyOptions,
   type ResourceStoreOptions,
-} from '../store/resourceStore.ts';
-export type { RefFields, Resolve, Source, SourceOf, SourceRegistry } from '../types.ts';
+} from '../impl/store/resourceStore.ts';
+export type { RefFields, Resolve, Source, SourceRegistry } from '../impl/types.ts';

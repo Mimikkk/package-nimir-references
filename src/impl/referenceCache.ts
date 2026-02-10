@@ -1,4 +1,4 @@
-import type { AdapterCache } from './adapters/adapterCache.ts';
+import type { AdapterCache } from '../adapters/adapterCache.ts';
 
 export type NegativeReason = 'not-found' | 'unauthorized' | 'missing' | 'internal-server-error';
 
@@ -17,11 +17,11 @@ export type ResourceEntry<TResource> = PositiveEntry<TResource> | NegativeEntry;
 const NegativePrefix = 'neg:';
 const prefixNegative = (id: string) => `${NegativePrefix}${id}`;
 
-export class ResourceCache<TResource> {
+export class ReferenceCache<TResource> {
   private constructor(private readonly cache: AdapterCache<ResourceEntry<TResource>>) {}
 
-  static new<TResource>(cache: AdapterCache<ResourceEntry<TResource>>): ResourceCache<TResource> {
-    return new ResourceCache(cache);
+  static new<TResource>(cache: AdapterCache<ResourceEntry<TResource>>): ReferenceCache<TResource> {
+    return new ReferenceCache(cache);
   }
 
   async all(ttlMs: number): Promise<{ positive: Map<string, TResource>; negative: Map<string, NegativeEntry> }> {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { defineReferences } from './exports/lib.ts';
+import { defineReferences } from './lib.ts';
 
 describe('library entry', () => {
   it('loads from index without runtime-specific adapters', async () => {

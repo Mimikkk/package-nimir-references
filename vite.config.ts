@@ -7,21 +7,14 @@ export default defineConfig({
     outDir: 'build',
     lib: {
       entry: {
-        '.': 'src/exports/lib.ts',
-        'idb-keyval': 'src/exports/idb-keyval.ts',
+        references: 'src/exports/lib.ts',
         'in-memory': 'src/exports/in-memory.ts',
+        'idb-keyval': 'src/exports/idb-keyval.ts',
       },
       fileName: (format, name) => `${name}.${format}.js`,
       formats: ['es', 'cjs'],
     },
   },
-  plugins: [
-    dts({
-      tsconfigPath: 'tsconfig.library.json',
-    }),
-  ],
-  test: {
-    globals: true,
-    setupFiles: ['./src/vitest-setup.ts'],
-  },
+  plugins: [dts({ tsconfigPath: 'tsconfig.library.json' })],
+  test: { setupFiles: ['./src/vitest-setup.ts'] },
 });
