@@ -1,6 +1,10 @@
 import type { Nil, Nullable } from './common.ts';
 
-export interface Source<_TMarker = unknown> {}
+export interface Source<TResource = unknown> {
+  resolve(ids: string[]): Promise<Map<string, TResource | null>>;
+  invalidate(ids?: string[]): Promise<void>;
+  clearAll(): Promise<void>;
+}
 
 export type SourceRegistry = Record<string, Source>;
 export type SourceOf<TSource extends Source> = TSource extends Source<infer TValue> ? TValue : never;

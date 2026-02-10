@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { ResourceStore } from './store.ts';
+import { ResourceStore } from './resourceStore.ts';
 
 type Entity = { id: string };
 

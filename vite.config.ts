@@ -6,10 +6,13 @@ export default defineConfig({
     emptyOutDir: true,
     outDir: 'build',
     lib: {
-      entry: 'src/references.ts',
-      name: 'references',
-      fileName: format => `references.${format}.js`,
-      formats: ['es', 'cjs', 'umd'],
+      entry: {
+        '.': 'src/exports/lib.ts',
+        'idb-keyval': 'src/exports/idb-keyval.ts',
+        'in-memory': 'src/exports/in-memory.ts',
+      },
+      fileName: (format, name) => `${name}.${format}.js`,
+      formats: ['es', 'cjs'],
     },
   },
   plugins: [

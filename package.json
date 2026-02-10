@@ -29,14 +29,20 @@
   "author": "Daniel Zdancewicz <zdancewicz.daniel@gmail.com>",
   "type": "module",
   "exports": {
-    "types": "./build/references.d.ts",
-    "require": "./build/references.cjs.js",
-    "default": "./build/references.es.js"
+    ".": {
+      "types": "./build/references.d.ts",
+      "require": "./build/references.cjs.js",
+      "default": "./build/references.es.js"
+    },
+    "./indexeddb": {
+      "types": "./build/indexeddb.d.ts",
+      "require": "./build/indexeddb.cjs.js",
+      "default": "./build/indexeddb.es.js"
+    }
   },
   "main": "./build/references.cjs.js",
-  "unpkg": "./build/references.umd.js",
   "module": "./build/references.es.js",
-  "source": "./src/references.ts",
+  "source": "./src/index.ts",
   "files": [
     "build",
     "src/",
@@ -56,7 +62,7 @@
     "vite-plugin-dts": "^4.5.4",
     "vitest": "^4.0.18"
   },
-  "dependencies": {
+  "peerDependencies": {
     "idb-keyval": "^6.2.2"
   }
 }
