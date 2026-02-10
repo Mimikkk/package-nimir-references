@@ -36,9 +36,19 @@ class IdbKeyvalCache<TValue> implements AdapterCache<TValue> {
   }
 }
 
+/**
+ * Options for `createIdbKeyvalCache`.
+ *
+ * `table` is the object store name (passed to `idb-keyval`'s `createStore`).
+ */
 export interface IdbKeyvalCacheOptions {
   database: string;
   table: string;
 }
 
+/**
+ * Creates an IndexedDB-backed cache adapter using `idb-keyval`.
+ *
+ * Use it with `ResourceCache.new(...)` to enable persistence across sessions.
+ */
 export const createIdbKeyvalCache = IdbKeyvalCache.from;

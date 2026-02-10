@@ -1,12 +1,43 @@
 import type { Awaitable, Nil, Nullable } from './common.ts';
 
+/**
+ * A named source of resources addressable by string IDs.
+ *
+ * Sources are created via `defineReferences(...).source(...)`.
+ * The resolver calls `resolve(ids)` and expects a map for the requested IDs.
+ */
 export interface Source<TResource = unknown> {
+  /**
+   * Resolves the given IDs.
+   *
+   * - IDs not found should map to `null`.
+   * - It is OK to return a map missing some keys; the resolver treats them as missing.
+   */
   resolve(ids: string[]): Awaitable<Map<string, TResource | null>>;
+
+  /**
+   * Invalidates cached entries.
+   *
+   * If `ids` is omitted, the source should invalidate everything it knows about.
+   */
   invalidate(ids?: string[]): Promise<void>;
+
+  /**
+   * Clears all cached entries for this source (including any persistent cache).
+   */
   clearAll(): Promise<void>;
 }
 
+/**
+ * Registry of named sources.
+ *
+ * Keys are source names referenced by `fields` configs.
+ */
 export type SourceRegistry = Record<string, Source>;
+
+/**
+ * Extracts the resource type produced by a source.
+ */
 export type SourceOf<TSource extends Source> = TSource extends Source<infer TValue> ? TValue : never;
 
 type StrRef = Nil<string>;
@@ -22,6 +53,14 @@ type NestedRef<TSources extends SourceRegistry, TSource extends keyof TSources =
 
 type FieldRef<TSources extends SourceRegistry> = DirectRef<TSources> | NestedRef<TSources>;
 
+/**
+ * Configuration object that describes where reference IDs live inside `TData`.
+ *
+ * It mirrors the shape of `TData`:
+ * - For a field that contains a reference ID (`string | null | undefined` or array of those),
+ *   you specify a source name (direct) or `{ source, fields }` (nested).
+ * - For regular objects/arrays-of-objects, you can keep nesting to reach the ref fields.
+ */
 export type RefFields<TData, TSources extends SourceRegistry> = TData extends readonly (infer TElement)[]
   ? RefFields<TElement, TSources>
   : {
@@ -86,6 +125,13 @@ type ResolveArray<
   TFields extends RefFields<TData, TSources>,
 > = Resolve<TData[number], TSources, TFields>[];
 
+/**
+ * Resolved output type produced by `inline` / `fn`.
+ *
+ * Adds `T`/`Ts` properties next to reference ID fields described by `TFields`.
+ * - `x: string | null | undefined` → `xT: <resolved> | null | undefined`
+ * - `x: Array<string | null | undefined>` → `xTs: Array<<resolved> | null>`
+ */
 export type Resolve<TData, TSources extends SourceRegistry, TFields extends RefFields<TData, TSources>> = TData extends
   | null
   | undefined

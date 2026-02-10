@@ -1,5 +1,10 @@
 import type { AdapterCache } from './adapterCache.ts';
 
+/**
+ * Options for `createMemoryCache`.
+ *
+ * Currently unused (kept for forwards-compat).
+ */
 export interface MemoryCacheOptions {}
 
 class MemoryCache<TValue> implements AdapterCache<TValue> {

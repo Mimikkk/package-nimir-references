@@ -38,12 +38,30 @@ function addSourceIds(map: Map<string, Set<string>>, source: string, values: unk
 export class ReferenceResolver<TSources extends SourceRegistry> {
   private constructor(private readonly sources: ReadonlyMap<string, Source>) {}
 
+  /**
+   * Creates a resolver from a map of named sources.
+   *
+   * Most users should not instantiate this directly; use `defineReferences(...)`.
+   */
   static from<TSources extends SourceRegistry>(
     sources: ReadonlyMap<Extract<keyof TSources, string>, Source>,
   ): ReferenceResolver<TSources> {
     return new ReferenceResolver(sources);
   }
 
+  /**
+   * Resolves references described by `fields` on `item`.
+   *
+   * Behavior:
+   * - Returns a clone (does not mutate `item`).
+   * - Adds `T` / `Ts` properties next to reference ID fields.
+   * - Missing IDs (not returned by the source) resolve to `null`.
+   * - `null` / `undefined` IDs resolve to `null` in the corresponding `T`/`Ts` slot.
+   * - Unknown source names are skipped (no throw).
+   *
+   * Depth:
+   * - Resolution is bounded by `maxDepth` to avoid infinite loops on circular configs.
+   */
   async resolve<TData, TFields extends RefFields<TData, TSources>>(
     item: TData,
     fields: TFields,

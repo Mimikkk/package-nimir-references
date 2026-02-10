@@ -47,10 +47,10 @@
   },
   "main": "./build/references.cjs.js",
   "module": "./build/references.es.js",
-  "source": "./src/index.ts",
+  "source": "./src/exports/lib.ts",
   "files": [
     "build",
-    "src/",
+    "src",
     "tsconfig.json",
     "tsconfig.vite.json",
     "vite.config.ts"
