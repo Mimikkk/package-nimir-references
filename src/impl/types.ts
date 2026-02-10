@@ -1,4 +1,4 @@
-import type { Awaitable, Nil, Nullable } from './common.ts';
+import type { Awaitable, Nil } from './common.ts';
 
 /**
  * A named source of resources addressable by string IDs.
@@ -116,7 +116,7 @@ type ResolveRefKey<TKey, TSources extends SourceRegistry, TFields> =
 type ResolveRecord<TData, TSources extends SourceRegistry, TFields extends RefFields<TData, TSources>> = {
   [TKey in RecordKeys<TData>]: TKey extends DataKeys<TData>
     ? ResolveDataKey<TData, TKey, TSources, TFields>
-    : Nullable<ResolveRefKey<TKey, TSources, TFields>>;
+    : Nil<ResolveRefKey<TKey, TSources, TFields>>;
 };
 
 type ResolveArray<

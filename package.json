@@ -31,36 +31,44 @@
   "exports": {
     ".": {
       "types": "./build/references.d.ts",
-      "require": "./build/references.cjs.js",
+      "require": "./build/references.cjs",
       "default": "./build/references.es.js"
     },
     "./idb-keyval": {
       "types": "./build/idb-keyval.d.ts",
-      "require": "./build/idb-keyval.cjs.js",
+      "require": "./build/idb-keyval.cjs",
       "default": "./build/idb-keyval.es.js"
     },
     "./in-memory": {
       "types": "./build/in-memory.d.ts",
-      "require": "./build/in-memory.cjs.js",
+      "require": "./build/in-memory.cjs",
       "default": "./build/in-memory.es.js"
     }
   },
-  "main": "./build/references.cjs.js",
+  "main": "./build/references.cjs",
   "module": "./build/references.es.js",
   "source": "./src/exports/lib.ts",
   "files": [
     "build",
     "src",
+    "!src/**/*.test.ts",
+    "!src/samples",
+    "!src/vitest-setup.ts",
+    "!src/exports/env.smoke.test.ts",
     "tsconfig.json",
     "tsconfig.vite.json",
     "vite.config.ts"
   ],
   "scripts": {
     "build": "vite build",
-    "test": "vitest test"
+    "test": "vitest test",
+    "test:env": "pnpm build && vitest run src/exports/env.smoke.test.ts",
+    "prepack": "pnpm build"
   },
   "devDependencies": {
+    "@types/node": "^24.10.12",
     "fake-indexeddb": "^6.2.5",
+    "idb-keyval": "^6.2.2",
     "prettier": "^3.8.1",
     "rolldown-vite": "^7.3.1",
     "typescript": "^5.9.3",

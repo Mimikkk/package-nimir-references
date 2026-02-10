@@ -9,7 +9,7 @@
     "moduleResolution": "bundler",
     "outDir": "build",
     "lib": ["DOM", "ESNext"],
-    "types": ["rolldown-vite/client"],
+    "types": ["rolldown-vite/client", "node", "vitest"],
     "allowImportingTsExtensions": true
   },
   "include": ["src", "readme.md"],
