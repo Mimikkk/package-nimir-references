@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createIdbKeyvalCache } from '../adapters/idb-keyval.ts';
 import { ReferenceCache } from './referenceCache.ts';
-import { ReferenceStore } from './store/resourceStore.ts';
+import { ReferenceStore } from './referenceStore.ts';
 
 type Entity = { id: string };
 

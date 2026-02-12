@@ -1,5 +1,4 @@
-import { defineReferences, type SourcesBuilderContext } from '../exports/lib.ts';
-import type { RefFields, Resolve, SourceRegistry } from '../impl/types.ts';
+import { defineReferences, type RefFields, type Resolve, type SourcesOf } from '../exports/lib.ts';
 
 type Id = string;
 type RefId = Id | null | undefined;
@@ -389,58 +388,55 @@ const Resources = {
   ] satisfies AuditEvent[],
 } as const;
 
-const sources = (c: SourcesBuilderContext) =>
-  ({
-    User: c.source<User>({
-      fetchAll: () => Resources.users,
-    }),
-    Team: c.source<Team>({
-      fetchAll: () => Resources.teams,
-    }),
-    Org: c.source<Organization>({
-      fetchAll: () => Resources.orgs,
-    }),
-    Role: c.source<Role>({
-      fetchByIds: (ids: string[]) => Resources.roles.filter(r => ids.includes(r.id)),
-      batchSize: 1,
-    }),
-    Permission: c.source<Permission>({
-      fetchByIds: (ids: string[]) => Resources.permissions.filter(p => ids.includes(p.id)),
-      batchSize: 2,
-    }),
-    FeatureFlag: c.source<FeatureFlag>({
-      fetchAll: () => Resources.featureFlags,
-    }),
-    File: c.source<File>({
-      fetchByIds: (ids: string[]) => Resources.files.filter(f => ids.includes(f.id)),
-      batchSize: 50,
-    }),
-    PaymentMethod: c.source<PaymentMethod>({
-      fetchAll: () => Resources.paymentMethods,
-    }),
-    Invoice: c.source<Invoice>({
-      fetchAll: () => Resources.invoices,
-    }),
-    Project: c.source<Project>({
-      fetchAll: () => Resources.projects,
-    }),
-    Task: c.source<Task>({
-      fetchAll: () => Resources.tasks,
-    }),
-    Comment: c.source<Comment>({
-      fetchAll: () => Resources.comments,
-    }),
-    Tag: c.source<Tag>({
-      fetchAll: () => Resources.tags,
-    }),
-    AuditEvent: c.source<AuditEvent>({
-      fetchAll: () => Resources.auditEvents,
-    }),
-  }) satisfies SourceRegistry;
+const refs = defineReferences(c => ({
+  User: c.source<User>({
+    fetchAll: () => Resources.users,
+  }),
+  Team: c.source<Team>({
+    fetchAll: () => Resources.teams,
+  }),
+  Org: c.source<Organization>({
+    fetchAll: () => Resources.orgs,
+  }),
+  Role: c.source<Role>({
+    fetchByIds: (ids: string[]) => Resources.roles.filter(r => ids.includes(r.id)),
+    batchSize: 1,
+  }),
+  Permission: c.source<Permission>({
+    fetchByIds: (ids: string[]) => Resources.permissions.filter(p => ids.includes(p.id)),
+    batchSize: 2,
+  }),
+  FeatureFlag: c.source<FeatureFlag>({
+    fetchAll: () => Resources.featureFlags,
+  }),
+  File: c.source<File>({
+    fetchByIds: (ids: string[]) => Resources.files.filter(f => ids.includes(f.id)),
+    batchSize: 50,
+  }),
+  PaymentMethod: c.source<PaymentMethod>({
+    fetchAll: () => Resources.paymentMethods,
+  }),
+  Invoice: c.source<Invoice>({
+    fetchAll: () => Resources.invoices,
+  }),
+  Project: c.source<Project>({
+    fetchAll: () => Resources.projects,
+  }),
+  Task: c.source<Task>({
+    fetchAll: () => Resources.tasks,
+  }),
+  Comment: c.source<Comment>({
+    fetchAll: () => Resources.comments,
+  }),
+  Tag: c.source<Tag>({
+    fetchAll: () => Resources.tags,
+  }),
+  AuditEvent: c.source<AuditEvent>({
+    fetchAll: () => Resources.auditEvents,
+  }),
+}));
 
-type TSources = ReturnType<typeof sources>;
-
-const refs = defineReferences(sources);
+type TSources = SourcesOf<typeof refs>;
 
 const page: ComplexPagePayload = {
   organizationId: 'o1',

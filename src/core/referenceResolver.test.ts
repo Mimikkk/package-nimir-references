@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ReferenceResolver } from './referenceResolver.ts';
-import { ReferenceStore } from './store/resourceStore.ts';
+import { ReferenceStore } from './referenceStore.ts';
 import type { SourceRegistry } from './types.ts';
 
 type Entity = { id: string };

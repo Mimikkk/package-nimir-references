@@ -13,25 +13,19 @@
  * - For a ref field `x: Array<string | null | undefined>` the resolver adds `xTs`.
  */
 export { type AdapterCache } from '../adapters/adapterCache.ts';
+export { defineReferences, type ResolveOf, type SourcesOf } from '../core/defineReferences.ts';
 export {
-  defineReferences,
-  type References,
-  type ResolveFn,
-  type ResolveOf,
-  type SourcesBuilderContext,
-} from '../impl/defineReferences.ts';
-export {
-  ReferenceCache as ResourceCache,
+  ReferenceCache,
   type NegativeEntry,
   type NegativeReason,
   type PositiveEntry,
   type ResourceEntry,
-} from '../impl/referenceCache.ts';
-export { ReferenceResolver } from '../impl/referenceResolver.ts';
+} from '../core/referenceCache.ts';
+export { ReferenceResolver } from '../core/referenceResolver.ts';
 export {
-  ReferenceStore as ResourceStore,
+  ReferenceStore,
   type FetchAllStrategyOptions,
   type FetchByIdsStrategyOptions,
   type ResourceStoreOptions,
-} from '../impl/store/resourceStore.ts';
-export type { RefFields, Resolve, Source, SourceRegistry } from '../impl/types.ts';
+} from '../core/referenceStore.ts';
+export type { RefFields, Resolve, Source, SourceRegistry } from '../core/types.ts';

@@ -1,5 +1,5 @@
-import type { Awaitable } from '../common.ts';
-import type { NegativeEntry, NegativeReason, ReferenceCache } from '../referenceCache.ts';
+import type { Awaitable } from './common.ts';
+import type { NegativeEntry, NegativeReason, ReferenceCache } from './referenceCache.ts';
 
 export const FcNoop = () => {};
 
