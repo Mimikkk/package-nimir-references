@@ -1,4 +1,4 @@
-import { defineReferences, type RefFields, type Resolve, type SourcesOf } from '../exports/lib.ts';
+import { defineReferences, type RefFields, type Resolve, type SourcesOf } from '@nimir/references';
 
 type Id = string;
 type RefId = Id | null | undefined;
@@ -637,9 +637,6 @@ const fields = {
 
 type ResolvedPage = Resolve<ComplexPagePayload, TSources, typeof fields>;
 
-declare const resolvedValue: ResolvedPage;
-const _resolvedPageCheck: ResolvedPage = resolvedValue;
-
 async function compileOnlyExercise() {
   const resolved = await refs.inline(page, { fields });
   const justIds = await refs.inline(page, {
@@ -674,4 +671,6 @@ async function compileOnlyExercise() {
   return { resolved, resolved2, justIds, resolvedUnsafe };
 }
 
-void compileOnlyExercise;
+compileOnlyExercise().then(out => {
+  console.log('Resolved page (excerpt):', JSON.stringify(out.justIds, null, 2));
+});

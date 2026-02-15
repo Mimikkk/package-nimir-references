@@ -1,13 +1,20 @@
+import path from 'node:path';
 import dts from 'vite-plugin-dts';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      src: path.resolve(__dirname, 'src'),
+    },
+  },
   build: {
     emptyOutDir: true,
     outDir: 'build',
     lib: {
       entry: {
         references: 'src/exports/lib.ts',
+        react: 'src/exports/react.ts',
         'in-memory': 'src/exports/in-memory.ts',
         'idb-keyval': 'src/exports/idb-keyval.ts',
       },

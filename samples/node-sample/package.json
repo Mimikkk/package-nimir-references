@@ -1,0 +1,16 @@
+{
+  "name": "@nimir/node-sample",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/complex-sample.ts",
+    "dev": "tsx watch src/complex-sample.ts"
+  },
+  "dependencies": {
+    "@nimir/references": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3"
+  }
+}

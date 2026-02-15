@@ -34,6 +34,11 @@
       "require": "./build/references.cjs",
       "default": "./build/references.es.js"
     },
+    "./react": {
+      "types": "./build/react.d.ts",
+      "require": "./build/react.cjs",
+      "default": "./build/react.es.js"
+    },
     "./idb-keyval": {
       "types": "./build/idb-keyval.d.ts",
       "require": "./build/idb-keyval.cjs",

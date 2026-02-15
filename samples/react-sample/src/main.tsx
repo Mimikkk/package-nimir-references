@@ -1,8 +1,8 @@
 import './styles.css';
 
+import { defineReferences } from '@nimir/references/react';
 import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { defineReferences } from 'src/frameworks/react.ts';
 
 type User = {
   id: string;
@@ -27,18 +27,17 @@ const userDb = new Map<string, User>([
   ['u3', { id: 'u3', handle: 'wiz' }],
 ]);
 
-const references = defineReferences(ctx => ({
-  users: ctx.source<User>({
-    // Deliberately slow + batched: exercise inflight + cache behavior.
-    fetchByIds: async ids => {
-      await sleep(250);
-      return ids.flatMap(id => {
-        const hit = userDb.get(id);
-        return hit ? [hit] : [];
-      });
-    },
-    batchSize: 50,
-    ttlMs: 15_000,
+const references = defineReferences(c => ({
+  users: c.source({
+    // fetchByIds: async ids => {
+    //   await sleep(250);
+    //   return ids.flatMap(id => {
+    //     const hit = userDb.get(id);
+    //     return hit ? [hit] : [];
+    //   });
+    // },
+    // batchSize: 50,
+    // ttlMs: 15_000,
   }),
 }));
 
@@ -80,8 +79,8 @@ function App() {
               <div className="text-lg font-semibold">@nimir/references React adapter sample</div>
               <div className="text-sm opacity-70">
                 Resolves <code className="kbd kbd-sm">assigneeId</code>, <code className="kbd kbd-sm">watcherIds</code>,{' '}
-                <code className="kbd kbd-sm">meta.lastEditedById</code> from a mocked <code className="kbd kbd-sm">users</code>{' '}
-                source.
+                <code className="kbd kbd-sm">meta.lastEditedById</code> from a mocked{' '}
+                <code className="kbd kbd-sm">users</code> source.
               </div>
             </div>
 
@@ -96,7 +95,6 @@ function App() {
           </div>
         </div>
       </div>
-
       <main className="mx-auto w-full max-w-5xl px-4 py-6" key={version}>
         <div className="card bg-base-100 border border-base-300 shadow-sm mb-4">
           <div className="card-body gap-3">
@@ -146,7 +144,8 @@ function App() {
             </div>
 
             <div className="text-sm opacity-70">
-              Tip: set refs to <code className="kbd kbd-sm">missing</code> and watch it resolve to <code className="kbd kbd-sm">null</code>.
+              Tip: set refs to <code className="kbd kbd-sm">missing</code> and watch it resolve to{' '}
+              <code className="kbd kbd-sm">null</code>.
             </div>
           </div>
         </div>
@@ -196,4 +195,3 @@ createRoot(rootEl).render(
     <App />
   </React.StrictMode>,
 );
-

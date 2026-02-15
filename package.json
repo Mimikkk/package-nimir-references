@@ -1,5 +1,8 @@
 {
   "scripts": {
-    "test": "pnpm --filter @nimir/references test"
+    "test": "pnpm --filter @nimir/references test",
+    "build": "pnpm --filter @nimir/references build",
+    "dev:react": "pnpm --filter @nimir/react-sample dev",
+    "dev:node": "pnpm --filter @nimir/node-sample start"
   }
 }
