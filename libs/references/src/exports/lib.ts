@@ -21,7 +21,7 @@ export {
   type PositiveEntry,
   type ResourceEntry,
 } from '../core/referenceCache.ts';
-export { ReferenceResolver } from '../core/referenceResolver.ts';
+export { ReferenceResolver, type ResolveSyncResult } from '../core/referenceResolver.ts';
 export {
   ReferenceStore,
   type FetchAllStrategyOptions,

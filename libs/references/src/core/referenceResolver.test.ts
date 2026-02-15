@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { Nil } from './common.ts';
 import { ReferenceResolver } from './referenceResolver.ts';
 import { ReferenceStore } from './referenceStore.ts';
 import type { SourceRegistry } from './types.ts';
@@ -24,20 +25,20 @@ function createResolver(configs: Record<string, Entity[]>): ReferenceResolver<So
 
 describe('References - Resolver', () => {
   it('resolves a direct single ref (string → T)', async () => {
-    const resolver = createResolver({ Faculty: [a1, a2] });
-    const item = { facultyId: 'f1', other: 42 };
-    const result = await resolver.resolve(item, { facultyId: 'Faculty' });
+    const resolver = createResolver({ A: [a1, a2] });
+    const item = { aId: 'f1', other: 42 };
+    const result = await resolver.resolve(item, { aId: 'A' });
 
     expect(result).toEqual({
-      facultyId: 'f1',
-      facultyIdT: a1,
+      aId: 'f1',
+      aIdT: a1,
       other: 42,
     });
   });
 
   it('resolves an array of direct refs (string[] → Ts[])', async () => {
-    const resolver = createResolver({ Faculty: [a1, a2] });
-    const result = await resolver.resolve([{ id: a1.id }, { id: a2.id }], { id: 'Faculty' });
+    const resolver = createResolver({ A: [a1, a2] });
+    const result = await resolver.resolve([{ id: a1.id }, { id: a2.id }], { id: 'A' });
 
     expect(result).toEqual([
       { id: a1.id, idT: a1 },
@@ -46,53 +47,53 @@ describe('References - Resolver', () => {
   });
 
   it('resolves a direct array ref (string[] → Ts)', async () => {
-    const resolver = createResolver({ Faculty: [a1, a2] });
-    const item = { facultyIds: ['f1', 'f2'] };
-    const result = await resolver.resolve(item, { facultyIds: 'Faculty' });
+    const resolver = createResolver({ A: [a1, a2] });
+    const item = { aIds: ['f1', 'f2'] };
+    const result = await resolver.resolve(item, { aIds: 'A' });
 
     expect(result).toEqual({
-      facultyIds: ['f1', 'f2'],
-      facultyIdsTs: [a1, a2],
+      aIds: ['f1', 'f2'],
+      aIdsTs: [a1, a2],
     });
   });
 
   it('resolves multiple fields from different sources in parallel', async () => {
     const resolver = createResolver({
-      Faculty: [a1],
+      A: [a1],
       Branch: [b1],
     });
-    const item = { facultyId: 'f1', branchId: 'b1' };
-    const result = await resolver.resolve(item, { facultyId: 'Faculty', branchId: 'Branch' });
+    const item = { aId: 'f1', branchId: 'b1' };
+    const result = await resolver.resolve(item, { aId: 'A', branchId: 'Branch' });
 
     expect(result).toEqual({
-      facultyId: 'f1',
-      facultyIdT: a1,
+      aId: 'f1',
+      aIdT: a1,
       branchId: 'b1',
       branchIdT: b1,
     });
   });
 
   it('resolves null/undefined fields as null T', async () => {
-    const resolver = createResolver({ Faculty: [a1] });
-    const item = { facultyId: null as string | null, branchId: undefined as string | undefined };
-    const result: any = await resolver.resolve(item, { facultyId: 'Faculty', branchId: 'Faculty' });
+    const resolver = createResolver({ A: [a1] });
+    const item = { aId: null as string | null, branchId: undefined as string | undefined };
+    const result: any = await resolver.resolve(item, { aId: 'A', branchId: 'A' });
 
-    expect(result.facultyIdT).toBeUndefined();
+    expect(result.aIdT).toBeUndefined();
     expect(result.branchIdT).toBeUndefined();
   });
 
   it('resolves missing IDs as null', async () => {
-    const resolver = createResolver({ Faculty: [a1] });
-    const item = { facultyId: 'nonexistent' };
-    const result: any = await resolver.resolve(item, { facultyId: 'Faculty' });
+    const resolver = createResolver({ A: [a1] });
+    const item = { aId: 'nonexistent' };
+    const result: any = await resolver.resolve(item, { aId: 'A' });
 
-    expect(result.facultyIdT).toBeNull();
+    expect(result.aIdT).toBeNull();
   });
 
   it('handles structural nesting into sub-objects', async () => {
-    const resolver = createResolver({ Faculty: [a1] });
+    const resolver = createResolver({ A: [a1] });
     const item = { nested: { deepId: 'f1' } };
-    const result = await resolver.resolve(item, { nested: { deepId: 'Faculty' } });
+    const result = await resolver.resolve(item, { nested: { deepId: 'A' } });
 
     expect(result).toEqual({
       nested: { deepId: 'f1', deepIdT: a1 },
@@ -100,9 +101,9 @@ describe('References - Resolver', () => {
   });
 
   it('handles structural nesting into arrays of objects', async () => {
-    const resolver = createResolver({ Faculty: [a1, a2] });
+    const resolver = createResolver({ A: [a1, a2] });
     const item = { items: [{ fId: 'f1' }, { fId: 'f2' }] };
-    const result = await resolver.resolve(item, { items: { fId: 'Faculty' } });
+    const result = await resolver.resolve(item, { items: { fId: 'A' } });
 
     expect(result).toEqual({
       items: [
@@ -113,60 +114,60 @@ describe('References - Resolver', () => {
   });
 
   it('handles nested references (multi-step resolution)', async () => {
-    const branch1 = { id: 'b1', facultyId: 'f1' };
+    const branch1 = { id: 'b1', aId: 'f1' };
     const resolver = createResolver({
       Branch: [branch1],
-      Faculty: [a1],
+      A: [a1],
     });
 
     const item = { branchId: 'b1' };
     const result: any = await resolver.resolve(item, {
-      branchId: { source: 'Branch', fields: { facultyId: 'Faculty' } },
+      branchId: { source: 'Branch', fields: { aId: 'A' } },
     });
 
     expect(result.branchIdT).toBeTruthy();
-    expect(result.branchIdT.facultyIdT).toEqual(a1);
+    expect(result.branchIdT.aIdT).toEqual(a1);
   });
 
   it('handles array nested references (multi-step, array IDs → resolved children)', async () => {
-    const b1 = { id: 'b1', facultyId: 'f1' };
-    const b2 = { id: 'b2', facultyId: 'f2' };
+    const b1 = { id: 'b1', aId: 'f1' };
+    const b2 = { id: 'b2', aId: 'f2' };
     const resolver = createResolver({
       Branch: [b1 as any, b2 as any],
-      Faculty: [a1, a2],
+      A: [a1, a2],
     });
 
     const item = { branchIds: ['b1', 'b2'] };
     const result: any = await resolver.resolve(item, {
-      branchIds: { source: 'Branch', fields: { facultyId: 'Faculty' } },
+      branchIds: { source: 'Branch', fields: { aId: 'A' } },
     });
 
     expect(result.branchIdsTs).toHaveLength(2);
-    expect(result.branchIdsTs[0].facultyIdT).toEqual(a1);
-    expect(result.branchIdsTs[1].facultyIdT).toEqual(a2);
+    expect(result.branchIdsTs[0].aIdT).toEqual(a1);
+    expect(result.branchIdsTs[1].aIdT).toEqual(a2);
   });
 
   it('does not mutate the original item (structuredClone)', async () => {
-    const resolver = createResolver({ Faculty: [a1] });
-    const item = { facultyId: 'f1' };
-    const result = await resolver.resolve(item, { facultyId: 'Faculty' });
+    const resolver = createResolver({ A: [a1] });
+    const item = { aId: 'f1' };
+    const result = await resolver.resolve(item, { aId: 'A' });
 
     expect(result).not.toBe(item);
-    expect(item).not.toHaveProperty('facultyIdT');
+    expect(item).not.toHaveProperty('aIdT');
   });
 
   it('handles deeply nested structural + ref chains', async () => {
-    const resolver = createResolver({ Faculty: [a1] });
+    const resolver = createResolver({ A: [a1] });
     const item = { a: { b: [{ c: { fId: 'f1' } }] } };
-    const result = await resolver.resolve(item, { a: { b: { c: { fId: 'Faculty' } } } });
+    const result = await resolver.resolve(item, { a: { b: { c: { fId: 'A' } } } });
 
     expect((result as any).a.b[0].c.fIdT).toEqual(a1);
   });
 
   it('handles empty arrays gracefully', async () => {
-    const resolver = createResolver({ Faculty: [a1] });
+    const resolver = createResolver({ A: [a1] });
     const item = { ids: [] as string[] };
-    const result = await resolver.resolve(item, { ids: 'Faculty' });
+    const result = await resolver.resolve(item, { ids: 'A' });
 
     expect(result).toEqual({ ids: [], idsTs: [] });
   });
@@ -199,15 +200,57 @@ describe('References - Resolver', () => {
   });
 
   it('resolves a nested array of refs (array of objects → array of objects with refs)', async () => {
-    const resolver = createResolver({ Faculty: [a1, a2] });
+    const resolver = createResolver({ A: [a1, a2] });
     const item = { items: [{ fId: 'f1' }, { fId: 'f2' }] };
-    const result = await resolver.resolve(item, { items: { fId: 'Faculty' } });
+    const result = await resolver.resolve(item, { items: { fId: 'A' } });
 
     expect(result).toEqual({
       items: [
         { fId: 'f1', fIdT: a1 },
         { fId: 'f2', fIdT: a2 },
       ],
+    });
+  });
+
+  describe('resolveSync', () => {
+    it('returns needs-resolve when source not warmed', () => {
+      const resolver = createResolver({ A: [a1] });
+      const item = { aId: 'f1' };
+      const out = resolver.resolveSync(item, { aId: 'A' });
+      expect(out.status).toBe('needs-resolve');
+    });
+
+    it('returns ok with result when all refs in cache', async () => {
+      const resolver = createResolver({ A: [a1, a2] });
+      await resolver.resolve({ aId: 'f1' }, { aId: 'A' });
+      const out = resolver.resolveSync({ aId: 'f1' }, { aId: 'A' });
+      expect(out).toEqual({ status: 'ok', result: { aId: 'f1', aIdT: a1 } });
+    });
+
+    it('returns ok with null for missing id when fetchAll warmed (full collection known)', async () => {
+      const resolver = createResolver({ A: [a1] });
+      await resolver.resolve({ aId: 'f1' }, { aId: 'A' });
+      const out = resolver.resolveSync({ aId: 'nonexistent' }, { aId: 'A' });
+      expect(out).toEqual({ status: 'ok', result: { aId: 'nonexistent', aIdT: null } });
+    });
+
+    it('returns ok for null/undefined item', () => {
+      const resolver = createResolver({ A: [a1] });
+      expect(resolver.resolveSync(null as { aId: Nil<string> } | null, { aId: 'A' })).toEqual({
+        status: 'ok',
+        result: null,
+      });
+
+      expect(resolver.resolveSync(undefined as { aId: Nil<string> } | undefined, { aId: 'A' })).toEqual({
+        status: 'ok',
+        result: undefined,
+      });
+    });
+
+    it('returns needs-resolve for unknown source', () => {
+      const resolver = createResolver({});
+      const out = resolver.resolveSync({ fId: 'f1' }, { fId: 'NonExistent' });
+      expect(out.status).toBe('needs-resolve');
     });
   });
 });

@@ -122,6 +122,10 @@ export class ReferenceStore<TResource> implements Source<TResource> {
     return this.strategy.resolve(ids);
   }
 
+  tryResolveSync(ids: string[]): Map<string, TResource | null> | null {
+    return this.strategy.tryResolveSync(ids);
+  }
+
   invalidate(ids?: string[]): Promise<void> {
     return this.strategy.invalidate(ids);
   }

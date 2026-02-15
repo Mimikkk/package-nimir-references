@@ -5,6 +5,7 @@ export const FcNoop = () => {};
 
 export interface ResourceStoreStrategy<TResource> {
   resolve(ids: string[]): Promise<Map<string, TResource | null>>;
+  tryResolveSync(ids: string[]): Map<string, TResource | null> | null;
   invalidate(ids?: string[]): Promise<void>;
   clearAll(): Promise<void>;
 }
@@ -44,6 +45,11 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
       this.ensureWarmUp().catch(FcNoop);
     }
 
+    return new Map(ids.map(id => [id, this.positives.get(id) ?? null]));
+  }
+
+  tryResolveSync(ids: string[]): Map<string, TResource | null> | null {
+    if (this.timestampMs === 0) return null;
     return new Map(ids.map(id => [id, this.positives.get(id) ?? null]));
   }
 
@@ -171,6 +177,24 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
       await Promise.all(joins);
     }
 
+    return result;
+  }
+
+  tryResolveSync(ids: string[]): Map<string, TResource | null> | null {
+    const result = new Map<string, TResource | null>();
+    for (const id of ids) {
+      const cached = this.positives.get(id);
+      if (cached !== undefined) {
+        result.set(id, cached);
+        continue;
+      }
+      const neg = this.negatives.get(id);
+      if (neg && Date.now() < neg.expiry) {
+        result.set(id, null);
+        continue;
+      }
+      return null;
+    }
     return result;
   }
 

@@ -1,7 +1,11 @@
-import type { Nil } from './common.ts';
+import { isNil, type Nil } from './common.ts';
 import type { RefFields, Resolve, Source, SourceRegistry } from './types.ts';
 
 const maxDepth = 10;
+
+export type ResolveSyncResult<TData, TSources extends SourceRegistry, TFields extends RefFields<TData, TSources>> =
+  | { status: 'ok'; result: Resolve<TData, TSources, TFields> }
+  | { status: 'needs-resolve' };
 
 type DirectRef = string;
 type NestedRef = { source: string; fields: Fields };
@@ -20,8 +24,7 @@ interface Ref {
 const isDirectRef = (value: Field): value is DirectRef => typeof value === 'string';
 const isNestedRef = (value: Field): value is NestedRef =>
   typeof value === 'object' && value !== null && 'source' in value && 'fields' in value;
-const isRuntimeFields = (value: Field): value is Fields =>
-  typeof value === 'object' && value !== null && !isNestedRef(value);
+const isFields = (value: Field): value is Fields => typeof value === 'object' && value !== null && !isNestedRef(value);
 
 function addSourceIds(map: Map<string, Set<string>>, source: string, values: unknown[]): void {
   let set = map.get(source);
@@ -38,40 +41,69 @@ function addSourceIds(map: Map<string, Set<string>>, source: string, values: unk
 export class ReferenceResolver<TSources extends SourceRegistry> {
   private constructor(private readonly sources: ReadonlyMap<string, Source>) {}
 
-  /**
-   * Creates a resolver from a map of named sources.
-   *
-   * Most users should not instantiate this directly; use `defineReferences(...)`.
-   */
   static from<TSources extends SourceRegistry>(
     sources: ReadonlyMap<Extract<keyof TSources, string>, Source>,
   ): ReferenceResolver<TSources> {
     return new ReferenceResolver(sources);
   }
 
-  /**
-   * Resolves references described by `fields` on `item`.
-   *
-   * Behavior:
-   * - Returns a clone (does not mutate `item`).
-   * - Adds `T` / `Ts` properties next to reference ID fields.
-   * - Missing IDs (not returned by the source) resolve to `null`.
-   * - `null` / `undefined` IDs resolve to `null` in the corresponding `T`/`Ts` slot.
-   * - Unknown source names are skipped (no throw).
-   *
-   * Depth:
-   * - Resolution is bounded by `maxDepth` to avoid infinite loops on circular configs.
-   */
   async resolve<TData, TFields extends RefFields<TData, TSources>>(
     item: TData,
     fields: TFields,
   ): Promise<Resolve<TData, TSources, TFields> | Extract<TData, null | undefined>> {
-    if (item === null || item === undefined) {
-      return item as Extract<TData, null | undefined>;
+    if (isNil(item)) {
+      return item;
     }
+    const out = await this.runLoop(item, fields as Fields, this.fetchBatchAsync.bind(this));
+    return out.result as Resolve<TData, TSources, TFields>;
+  }
 
+  resolveSync<TData, TFields extends RefFields<TData, TSources>>(
+    item: TData,
+    fields: TFields,
+  ): ResolveSyncResult<TData, TSources, TFields> {
+    if (isNil(item)) {
+      return { status: 'ok', result: item };
+    }
+    const out = this.runLoopSync(item, fields as Fields);
+
+    return out.needsResolve
+      ? { status: 'needs-resolve' }
+      : { status: 'ok', result: out.result as Resolve<TData, TSources, TFields> };
+  }
+
+  private async fetchBatchAsync(sourceIdsMap: Map<string, Set<string>>): Promise<Map<string, Map<string, unknown>>> {
+    const resolvedMaps = new Map<string, Map<string, unknown>>();
+    await Promise.all(
+      Array.from(sourceIdsMap.entries()).map(async ([source, ids]) => {
+        const store = this.sources.get(source);
+        if (!store) return;
+        const items = await store.resolve(Array.from(ids));
+        resolvedMaps.set(source, items as Map<string, unknown>);
+      }),
+    );
+    return resolvedMaps;
+  }
+
+  private fetchBatchSync(sourceIdsMap: Map<string, Set<string>>): Map<string, Map<string, unknown>> | null {
+    const resolvedMaps = new Map<string, Map<string, unknown>>();
+    for (const [source, ids] of sourceIdsMap.entries()) {
+      const store = this.sources.get(source);
+      if (!store) return null;
+      const resolved = store.tryResolveSync?.(Array.from(ids));
+      if (resolved === null) return null;
+      resolvedMaps.set(source, resolved as Map<string, unknown>);
+    }
+    return resolvedMaps;
+  }
+
+  private async runLoop(
+    item: unknown,
+    fields: Fields,
+    fetchBatch: (m: Map<string, Set<string>>) => Promise<Map<string, Map<string, unknown>>>,
+  ): Promise<{ result: Target | Target[] }> {
     const result = structuredClone(item) as Target | Target[];
-    const runtimeFields = fields as Fields;
+    const runtimeFields = fields;
     const queue: { target: Target; fields: Fields }[] = Array.isArray(result)
       ? result.map(target => ({ target, fields: runtimeFields }))
       : [{ target: result, fields: runtimeFields }];
@@ -90,46 +122,74 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
 
       if (references.length === 0) break;
 
-      const resolvedMaps = new Map<string, Map<string, unknown>>();
-      await Promise.all(
-        Array.from(sourceIdsMap.entries()).map(async ([source, ids]) => {
-          const store = this.sources.get(source);
-          if (!store) return;
-          const items = await store.resolve(Array.from(ids));
-          resolvedMaps.set(source, items as Map<string, unknown>);
-        }),
-      );
-
-      for (const reference of references) {
-        const resolvedMap = resolvedMaps.get(reference.source);
-        if (!resolvedMap) continue;
-
-        if (reference.isArray) {
-          const ids = (reference.target[reference.property] ?? []) as Nil<string>[];
-          const items = ids.map(id => (id ? (resolvedMap.get(id) ?? null) : null));
-          reference.target[`${reference.property}Ts`] = items;
-
-          if (reference.fields) {
-            for (const nested of items) {
-              if (nested && typeof nested === 'object') {
-                queue.push({ target: nested as Target, fields: reference.fields });
-              }
-            }
-          }
-          continue;
-        }
-
-        const id = reference.target[reference.property] as Nil<string>;
-        const nested = id ? (resolvedMap.get(id) ?? null) : null;
-        reference.target[`${reference.property}T`] = nested;
-
-        if (reference.fields && nested && typeof nested === 'object') {
-          queue.push({ target: nested as Target, fields: reference.fields });
-        }
-      }
+      const resolvedMaps = await fetchBatch(sourceIdsMap);
+      this.applyResolved(references, resolvedMaps, queue);
     }
 
-    return result as Resolve<TData, TSources, TFields>;
+    return { result };
+  }
+
+  private runLoopSync(item: unknown, fields: Fields): { result: Target | Target[]; needsResolve: boolean } {
+    const result = structuredClone(item) as Target | Target[];
+    const runtimeFields = fields;
+    const queue: { target: Target; fields: Fields }[] = Array.isArray(result)
+      ? result.map(target => ({ target, fields: runtimeFields }))
+      : [{ target: result, fields: runtimeFields }];
+
+    let depth = 0;
+    while (queue.length > 0) {
+      if (++depth > maxDepth) break;
+
+      const level = queue.splice(0, queue.length);
+      const sourceIdsMap = new Map<string, Set<string>>();
+      const references: Ref[] = [];
+
+      for (const entry of level) {
+        this.collect(entry.target, entry.fields, sourceIdsMap, references);
+      }
+
+      if (references.length === 0) break;
+
+      const resolvedMaps = this.fetchBatchSync(sourceIdsMap);
+      if (resolvedMaps === null) return { result, needsResolve: true };
+      this.applyResolved(references, resolvedMaps, queue);
+    }
+
+    return { result, needsResolve: false };
+  }
+
+  private applyResolved(
+    references: Ref[],
+    resolvedMaps: Map<string, Map<string, unknown>>,
+    queue: { target: Target; fields: Fields }[],
+  ): void {
+    for (const reference of references) {
+      const resolvedMap = resolvedMaps.get(reference.source);
+      if (!resolvedMap) continue;
+
+      if (reference.isArray) {
+        const ids = (reference.target[reference.property] ?? []) as Nil<string>[];
+        const items = ids.map(id => (id ? (resolvedMap.get(id) ?? null) : null));
+        reference.target[`${reference.property}Ts`] = items;
+
+        if (reference.fields) {
+          for (const nested of items) {
+            if (nested && typeof nested === 'object') {
+              queue.push({ target: nested as Target, fields: reference.fields });
+            }
+          }
+        }
+        continue;
+      }
+
+      const id = reference.target[reference.property] as Nil<string>;
+      const nested = id ? (resolvedMap.get(id) ?? null) : null;
+      reference.target[`${reference.property}T`] = nested;
+
+      if (reference.fields && nested && typeof nested === 'object') {
+        queue.push({ target: nested as Target, fields: reference.fields });
+      }
+    }
   }
 
   private collect(target: Target, fields: Fields, sourceIdsMap: Map<string, Set<string>>, references: Ref[]): void {
@@ -157,7 +217,7 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
         continue;
       }
 
-      if (!isRuntimeFields(field)) continue;
+      if (!isFields(field)) continue;
 
       if (Array.isArray(value)) {
         for (const child of value) {

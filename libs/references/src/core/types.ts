@@ -16,6 +16,12 @@ export interface Source<TResource = unknown> {
   resolve(ids: string[]): Awaitable<Map<string, TResource | null>>;
 
   /**
+   * Attempts to resolve IDs from application/cached data only.
+   * Returns a map when all IDs can be resolved without external fetch; otherwise `null`.
+   */
+  tryResolveSync?(ids: string[]): Map<string, TResource | null> | null;
+
+  /**
    * Invalidates cached entries.
    *
    * If `ids` is omitted, the source should invalidate everything it knows about.
