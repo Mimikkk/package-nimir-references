@@ -1,13 +1,14 @@
 import type { Awaitable } from './common.ts';
 import type { NegativeEntry, NegativeReason, ReferenceCache } from './referenceCache.ts';
 
-export const FcNoop = () => {};
+export const noop = () => {};
 
 export interface ResourceStoreStrategy<TResource> {
   resolve(ids: string[]): Promise<Map<string, TResource | null>>;
   tryResolveSync(ids: string[]): Map<string, TResource | null> | null;
   invalidate(ids?: string[]): Promise<void>;
   clearAll(): Promise<void>;
+  warmup(): Promise<void>;
 }
 
 export interface StrategyOptions<TResource> {
@@ -42,7 +43,7 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
 
     if (this.timestampMs > 0 && Date.now() - this.timestampMs > this.ttlMs) {
       this.warmup = null;
-      this.ensureWarmUp().catch(FcNoop);
+      this.ensureWarmUp().catch(noop);
     }
 
     return new Map(ids.map(id => [id, this.positives.get(id) ?? null]));
@@ -59,7 +60,7 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
         this.positives.delete(id);
         this.negatives.delete(id);
       }
-      await this.cache?.removeByIds(ids).catch(FcNoop);
+      await this.cache?.removeByIds(ids).catch(noop);
       return;
     }
 
@@ -67,7 +68,7 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
     this.negatives.clear();
     this.warmup = null;
     this.timestampMs = 0;
-    await this.cache?.clear().catch(FcNoop);
+    await this.cache?.clear().catch(noop);
   }
 
   async clearAll(): Promise<void> {
@@ -76,6 +77,10 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
     this.warmup = null;
     this.timestampMs = 0;
     await this.cache?.clear();
+  }
+
+  warmup(): Promise<void> {
+    return this.ensureWarmUp();
   }
 
   private ensureWarmUp(): Promise<void> {
@@ -109,7 +114,7 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
       entries.push([id, item]);
     }
 
-    this.cache?.storePositives(entries).catch(FcNoop);
+    this.cache?.storePositives(entries).catch(noop);
     this.timestampMs = Date.now();
   }
 }
@@ -204,13 +209,13 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
         this.positives.delete(id);
         this.negatives.delete(id);
       }
-      await this.cache?.removeByIds(ids).catch(FcNoop);
+      await this.cache?.removeByIds(ids).catch(noop);
       return;
     }
 
     this.positives.clear();
     this.negatives.clear();
-    await this.cache?.clear().catch(FcNoop);
+    await this.cache?.clear().catch(noop);
   }
 
   async clearAll(): Promise<void> {
@@ -218,6 +223,13 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
     this.negatives.clear();
     this.inflight.clear();
     await this.cache?.clear();
+  }
+
+  async warmup(): Promise<void> {
+    if (!this.cache) return;
+    const { positive, negative } = await this.cache.all(this.ttlMs);
+    for (const [id, item] of positive) this.positives.set(id, item);
+    for (const [id, entry] of negative) this.negatives.set(id, entry);
   }
 
   private async fetchAndCache(ids: string[]): Promise<Map<string, TResource | null>> {
@@ -304,7 +316,7 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
     }
 
     if (this.cache && entries.length > 0) {
-      this.cache.storePositives(entries).catch(FcNoop);
+      this.cache.storePositives(entries).catch(noop);
     }
 
     const missing = ids.filter(id => !fetchedIds.has(id));
@@ -326,7 +338,7 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
       deferreds.get(id)?.(null);
     }
 
-    this.cache?.storeNegatives(ids, reason, this.ttlMs).catch(FcNoop);
+    this.cache?.storeNegatives(ids, reason, this.ttlMs).catch(noop);
   }
 
   private handleFetchError(

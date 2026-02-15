@@ -1,6 +1,7 @@
 import { isNil, type Fn } from './common.ts';
 import { FnAwait } from './defineReferences.ts';
 import { ReferenceResolver } from './referenceResolver.ts';
+import { noop } from './strategies.ts';
 import type { RefFields, Resolve, Source, SourceRegistry } from './types.ts';
 
 export class API<TSources extends SourceRegistry> {
@@ -42,6 +43,14 @@ export class API<TSources extends SourceRegistry> {
 
   invalidate(source: Extract<keyof TSources, string>, ids?: string[]): void {
     this.stores.get(source)?.invalidate(ids);
+  }
+
+  /**
+   * Loads currently cached results from all sources into app memory.
+   * Use in useEffect for eager hydration before first resolve.
+   */
+  warmup(): Promise<void> {
+    return Promise.all(Array.from(this.stores.values()).map(s => s.warmup?.() ?? Promise.resolve())).then(noop);
   }
 
   async clear(): Promise<void> {

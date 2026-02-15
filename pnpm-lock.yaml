@@ -80,6 +80,9 @@ importers:
       '@nimir/references':
         specifier: workspace:*
         version: link:../../libs/references
+      idb-keyval:
+        specifier: ^6.2.2
+        version: 6.2.2
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.1.18

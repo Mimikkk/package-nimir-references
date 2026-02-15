@@ -8,7 +8,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@nimir/references": "workspace:*"
+    "@nimir/references": "workspace:*",
+    "idb-keyval": "^6.2.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",

@@ -32,6 +32,12 @@ export interface Source<TResource = unknown> {
    * Clears all cached entries for this source (including any persistent cache).
    */
   clearAll(): Promise<void>;
+
+  /**
+   * Loads currently cached results from persistent cache into app memory.
+   * No-op if the source has no cache. Use in useEffect for eager hydration.
+   */
+  warmup?(): Promise<void>;
 }
 
 /**

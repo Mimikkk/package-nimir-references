@@ -126,6 +126,10 @@ export class ReferenceStore<TResource> implements Source<TResource> {
     return this.strategy.tryResolveSync(ids);
   }
 
+  warmup(): Promise<void> {
+    return this.strategy.warmup();
+  }
+
   invalidate(ids?: string[]): Promise<void> {
     return this.strategy.invalidate(ids);
   }

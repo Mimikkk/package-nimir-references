@@ -3,9 +3,11 @@ import { memo } from 'react';
 interface NavbarProps {
   status: string;
   fetchStatus: string;
+  warmupEnabled: boolean;
+  onWarmupToggle: (v: boolean) => void;
 }
 
-export const Navbar = memo<NavbarProps>(function Navbar({ status, fetchStatus }) {
+export const Navbar = memo<NavbarProps>(function Navbar({ status, fetchStatus, warmupEnabled, onWarmupToggle }) {
   return (
     <div className="navbar bg-base-100/80 backdrop-blur border-b border-base-300">
       <div className="mx-auto w-full max-w-5xl px-4">
@@ -18,7 +20,16 @@ export const Navbar = memo<NavbarProps>(function Navbar({ status, fetchStatus })
               <code className="kbd kbd-sm">users</code> source.
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <label className="label cursor-pointer gap-2">
+              <span className="label-text text-sm">Warmup</span>
+              <input
+                type="checkbox"
+                className="toggle toggle-sm"
+                checked={warmupEnabled}
+                onChange={e => onWarmupToggle(e.target.checked)}
+              />
+            </label>
             <div className="badge badge-outline">
               status: <span className="ml-1 font-mono">{status}</span>
             </div>
