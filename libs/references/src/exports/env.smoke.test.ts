@@ -1,73 +1,170 @@
 import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(here, '..', '..');
+const pkgRoot = path.resolve(here, '..', '..'); // libs/references
 
-function runNode(args: string[]): { stdout: string; stderr: string } {
-  const stdout = execFileSync(process.execPath, args, {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-
-  return { stdout, stderr: '' };
-}
-
-function runNodeWithOutput(args: string[]): { stdout: string; stderr: string } {
+function run(cmd: string, args: string[], cwd: string): { stdout: string; stderr: string } {
   try {
-    return runNode(args);
+    const stdout = execFileSync(cmd, args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return { stdout, stderr: '' };
   } catch (error) {
-    // Surface child process output in test failure.
     const e = error as { stdout?: Buffer; stderr?: Buffer; message?: string };
     const stdout = e.stdout ? e.stdout.toString('utf8') : '';
     const stderr = e.stderr ? e.stderr.toString('utf8') : '';
-    throw new Error([e.message ?? 'node subprocess failed', '--- stdout ---', stdout, '--- stderr ---', stderr].join('\n'));
+    throw new Error([e.message ?? 'subprocess failed', '--- stdout ---', stdout, '--- stderr ---', stderr].join('\n'));
   }
 }
 
-describe('environment smoke', () => {
+describe('environment smoke (served package)', () => {
+  const tmp = mkdtempSync(path.join(tmpdir(), 'nimir-refs-smoke-'));
+  const tarball = path.join(pkgRoot, 'nimir-references-0.0.0.tgz');
+
+  beforeAll(() => run('pnpm', ['pack'], pkgRoot));
+  afterAll(() => rmSync(tmp, { recursive: true, force: true }));
+
   it('imports package + subpaths in Node ESM', () => {
+    const pkg = {
+      type: 'module' as const,
+      dependencies: {
+        '@nimir/references': `file:${tarball.replace(/\\/g, '/')}`,
+        'fake-indexeddb': '^6.2.5',
+        'idb-keyval': '^6.2.2',
+      },
+    };
+    writeFileSync(path.join(tmp, 'package.json'), JSON.stringify(pkg, null, 2));
+    run('pnpm', ['install', '--ignore-scripts'], tmp);
+
     const code = `
-      import { defineReferences, ResourceCache } from '@nimir/references';
+      import { defineReferences, ReferenceCache } from '@nimir/references';
       import { createMemoryCache } from '@nimir/references/in-memory';
 
       if (typeof defineReferences !== 'function') throw new Error('defineReferences missing');
-      const cache = ResourceCache.new(createMemoryCache());
+      const cache = ReferenceCache.new(createMemoryCache());
       if (!cache) throw new Error('cache missing');
 
-      // optional adapter should be importable and usable when IndexedDB exists
       import 'fake-indexeddb/auto';
       import { createIdbKeyvalCache } from '@nimir/references/idb-keyval';
-      ResourceCache.new(createIdbKeyvalCache({ database: 'db', table: 'tbl' }));
+      ReferenceCache.new(createIdbKeyvalCache({ database: 'db', table: 'tbl' }));
 
       console.log('ok');
     `;
 
-    const { stdout } = runNodeWithOutput(['--input-type=module', '-e', code]);
+    const { stdout } = run(process.execPath, ['--input-type=module', '-e', code], tmp);
     expect(stdout.trim()).toBe('ok');
   });
 
   it('imports package + subpaths in Node CJS', () => {
+    const pkg = {
+      type: 'commonjs' as const,
+      dependencies: {
+        '@nimir/references': `file:${tarball.replace(/\\/g, '/')}`,
+        'fake-indexeddb': '^6.2.5',
+        'idb-keyval': '^6.2.2',
+      },
+    };
+    writeFileSync(path.join(tmp, 'package.json'), JSON.stringify(pkg, null, 2));
+    run('pnpm', ['install', '--ignore-scripts'], tmp);
+
     const code = `
       const lib = require('@nimir/references');
       const mem = require('@nimir/references/in-memory');
 
       if (typeof lib.defineReferences !== 'function') throw new Error('defineReferences missing');
-      const cache = lib.ResourceCache.new(mem.createMemoryCache());
+      const cache = lib.ReferenceCache.new(mem.createMemoryCache());
       if (!cache) throw new Error('cache missing');
 
       require('fake-indexeddb/auto');
       const idb = require('@nimir/references/idb-keyval');
-      lib.ResourceCache.new(idb.createIdbKeyvalCache({ database: 'db', table: 'tbl' }));
+      lib.ReferenceCache.new(idb.createIdbKeyvalCache({ database: 'db', table: 'tbl' }));
 
       console.log('ok');
     `;
 
-    const { stdout } = runNodeWithOutput(['-e', code]);
+    const { stdout } = run(process.execPath, ['-e', code], tmp);
     expect(stdout.trim()).toBe('ok');
   });
-});
 
+  it('bundles and runs in browser', { timeout: 60000 }, async () => {
+    const browserTmp = path.join(tmp, 'browser');
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(browserTmp, { recursive: true });
+
+    const pkg = {
+      type: 'module' as const,
+      dependencies: {
+        '@nimir/references': `file:${tarball.replace(/\\/g, '/')}`,
+        'fake-indexeddb': '^6.2.5',
+        'idb-keyval': '^6.2.2',
+        vite: '^6.0.0',
+        playwright: '^1.49.0',
+      },
+    };
+    writeFileSync(path.join(browserTmp, 'package.json'), JSON.stringify(pkg, null, 2));
+    run('pnpm', ['install', '--ignore-scripts'], browserTmp);
+
+    writeFileSync(
+      path.join(browserTmp, 'index.html'),
+      '<!DOCTYPE html><html><body><div id="root"></div><script type="module" src="/main.js"></script></body></html>',
+    );
+    writeFileSync(
+      path.join(browserTmp, 'main.js'),
+      `
+      import { defineReferences, ReferenceCache } from '@nimir/references';
+      import { createMemoryCache } from '@nimir/references/in-memory';
+      import 'fake-indexeddb/auto';
+      import { createIdbKeyvalCache } from '@nimir/references/idb-keyval';
+
+      if (typeof defineReferences !== 'function') throw new Error('defineReferences missing');
+      const cache = ReferenceCache.new(createMemoryCache());
+      if (!cache) throw new Error('cache missing');
+      ReferenceCache.new(createIdbKeyvalCache({ database: 'db', table: 'tbl' }));
+
+      document.body.dataset.status = 'ok';
+    `,
+    );
+    writeFileSync(
+      path.join(browserTmp, 'vite.config.js'),
+      `export default { root: '.', build: { outDir: 'dist' } };`,
+    );
+
+    run('pnpm', ['exec', 'vite', 'build'], browserTmp);
+
+    const { chromium } = await import('playwright');
+    const { createServer } = await import('node:http');
+    const { createReadStream, existsSync } = await import('node:fs');
+    const distDir = path.join(browserTmp, 'dist');
+    const port = 34567;
+    const mime = (p: string) => (p.endsWith('.js') ? 'application/javascript' : 'text/html');
+    const server = createServer((req, res) => {
+      const url = req.url?.split('?')[0] ?? '/';
+      const file = path.join(distDir, url === '/' ? 'index.html' : url.replace(/^\//, ''));
+      if (!file.startsWith(distDir) || !existsSync(file)) {
+        res.writeHead(404);
+        res.end();
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': mime(file) });
+      createReadStream(file).pipe(res);
+    });
+    await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', () => resolve()));
+
+    try {
+      const browser = await chromium.launch();
+      const page = await browser.newPage();
+      await page.goto(`http://127.0.0.1:${port}`);
+      await page.waitForFunction(() => document.body.dataset.status === 'ok', { timeout: 10000 });
+      await browser.close();
+    } finally {
+      server.close();
+    }
+  });
+});

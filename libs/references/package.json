@@ -27,6 +27,9 @@
   },
   "license": "MIT",
   "author": "Daniel Zdancewicz <zdancewicz.daniel@gmail.com>",
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "exports": {
     ".": {
@@ -69,9 +72,7 @@
     "build",
     "src",
     "!src/**/*.test.ts",
-    "!src/samples",
     "!src/vitest-setup.ts",
-    "!src/exports/env.smoke.test.ts",
     "tsconfig.json",
     "tsconfig.vite.json",
     "vite.config.ts"
@@ -79,7 +80,7 @@
   "scripts": {
     "build": "vite build",
     "dev:samples": "vite --config vite.samples.config.ts",
-    "test": "vitest test",
+    "test": "vitest test --exclude src/exports/env.smoke.test.ts",
     "test:env": "pnpm build && vitest run src/exports/env.smoke.test.ts",
     "prepack": "pnpm build"
   },
@@ -99,7 +100,8 @@
     "tailwindcss": "^4.1.12",
     "typescript": "^5.9.3",
     "vite-plugin-dts": "^4.5.4",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "playwright": "^1.49.0"
   },
   "peerDependencies": {
     "idb-keyval": "^6.2.2"
