@@ -3,6 +3,7 @@
     "baseUrl": ".",
     "module": "ESNext",
     "target": "ESNext",
+    "jsx": "react-jsx",
     "noImplicitAny": true,
     "noEmit": true,
     "strictNullChecks": true,
