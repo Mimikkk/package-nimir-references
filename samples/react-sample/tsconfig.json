@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@nimir/references": ["../../libs/references/build/exports/lib.d.ts"],
+      "@nimir/references/react": ["../../libs/references/build/exports/react.d.ts"]
+    }
+  },
+  "include": ["src"]
+}

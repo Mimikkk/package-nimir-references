@@ -61,25 +61,13 @@ function App() {
 
   const ticket = useMemo(() => createTicket(seed), [seed]);
 
-  references.use(ticket, {
+  const { result, status, fetchStatus, error, invalidate } = references.use(ticket, {
     fields: {
       assigneeId: 'users',
       watcherIds: 'users',
+      meta: { lastEditedById: 'users' },
     },
   });
-
-  // const { result, status, fetchStatus, error, invalidate } = references.use(ticket, {
-  //   fields: {
-  //     assigneeId: 'users',
-  //     watcherIds: 'users',
-  //     meta: { lastEditedById: 'users' },
-  //   },
-  // });
-
-  const resolved = {};
-  const fetchStatus = 'idle';
-  const error = undefined;
-  const invalidate = () => Promise.resolve();
 
   return (
     <div className="min-h-screen">
@@ -180,10 +168,10 @@ function App() {
             <div className="card-body">
               <div className="flex items-center justify-between gap-2">
                 <h2 className="card-title text-base">Output (resolved)</h2>
-                <span className="badge badge-success badge-outline font-mono">{resolved ? 'ready' : 'pending'}</span>
+                <span className="badge badge-success badge-outline font-mono">{result ? 'ready' : 'pending'}</span>
               </div>
               <pre className="mt-2 rounded-box bg-base-200 p-4 text-xs overflow-auto">
-                {JSON.stringify(resolved, null, 2)}
+                {JSON.stringify(result, null, 2)}
               </pre>
             </div>
           </div>

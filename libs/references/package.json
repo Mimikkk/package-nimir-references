@@ -31,7 +31,6 @@
   "exports": {
     ".": {
       "development": {
-        "types": "./src/exports/lib.ts",
         "default": "./src/exports/lib.ts"
       },
       "types": "./build/exports/lib.d.ts",
@@ -40,7 +39,6 @@
     },
     "./react": {
       "development": {
-        "types": "./src/exports/react.ts",
         "default": "./src/exports/react.ts"
       },
       "types": "./build/exports/react.d.ts",
@@ -49,7 +47,6 @@
     },
     "./idb-keyval": {
       "development": {
-        "types": "./src/exports/idb-keyval.ts",
         "default": "./src/exports/idb-keyval.ts"
       },
       "types": "./build/exports/idb-keyval.d.ts",
@@ -58,7 +55,6 @@
     },
     "./in-memory": {
       "development": {
-        "types": "./src/exports/in-memory.ts",
         "default": "./src/exports/in-memory.ts"
       },
       "types": "./build/exports/in-memory.d.ts",
