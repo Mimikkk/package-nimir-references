@@ -4,53 +4,54 @@ import { defineReferences } from '@nimir/references/react';
 import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
-type User = {
+interface User {
   id: string;
   handle: string;
-};
+}
 
-type Ticket = {
+interface Ticket {
   id: string;
   title: string;
   assigneeId: string | null;
   watcherIds: (string | null)[];
-  meta: {
-    lastEditedById: string | null;
-  };
-};
+}
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
-const userDb = new Map<string, User>([
+const users = new Map<string, User>([
   ['u1', { id: 'u1', handle: 'megumin' }],
   ['u2', { id: 'u2', handle: 'yunyun' }],
   ['u3', { id: 'u3', handle: 'wiz' }],
 ]);
 
+const userService = {
+  fetchByIds: async (ids: string[]): Promise<User[]> => {
+    await sleep(250);
+
+    return ids.flatMap(id => {
+      const hit = users.get(id);
+      return hit ? [hit] : [];
+    });
+  },
+};
+
 const references = defineReferences(c => ({
   users: c.source({
-    // fetchByIds: async ids => {
-    //   await sleep(250);
-    //   return ids.flatMap(id => {
-    //     const hit = userDb.get(id);
-    //     return hit ? [hit] : [];
-    //   });
-    // },
-    // batchSize: 50,
-    // ttlMs: 15_000,
+    fetchByIds: userService.fetchByIds,
+    batchSize: 50,
+    ttlMs: 15_000,
   }),
 }));
 
-function newTicket(seed: number): Ticket {
-  const picks = ['u1', 'u2', 'u3', 'missing'];
-  const pick = (n: number) => picks[n % picks.length]!;
+function createTicket(seed: number): Ticket {
+  const ids = ['u1', 'u2', 'u3', 'missing'];
+  const pick = (n: number) => ids[n % ids.length]!;
 
   return {
     id: `t-${seed}`,
     title: `Explode the resolver (seed=${seed})`,
     assigneeId: pick(seed),
     watcherIds: [pick(seed + 1), null, pick(seed + 2)],
-    meta: { lastEditedById: pick(seed + 3) },
   };
 }
 
@@ -58,17 +59,27 @@ function App() {
   const [seed, setSeed] = useState(1);
   const [version, setVersion] = useState(0);
 
-  const ticket = useMemo(() => newTicket(seed), [seed]);
+  const ticket = useMemo(() => createTicket(seed), [seed]);
 
-  const { result, status, fetchStatus, error, invalidate } = references.use(ticket, {
+  references.use(ticket, {
     fields: {
       assigneeId: 'users',
       watcherIds: 'users',
-      meta: { lastEditedById: 'users' },
     },
   });
 
-  const resolved = result;
+  // const { result, status, fetchStatus, error, invalidate } = references.use(ticket, {
+  //   fields: {
+  //     assigneeId: 'users',
+  //     watcherIds: 'users',
+  //     meta: { lastEditedById: 'users' },
+  //   },
+  // });
+
+  const resolved = {};
+  const fetchStatus = 'idle';
+  const error = undefined;
+  const invalidate = () => Promise.resolve();
 
   return (
     <div className="min-h-screen">
@@ -83,7 +94,6 @@ function App() {
                 <code className="kbd kbd-sm">users</code> source.
               </div>
             </div>
-
             <div className="flex items-center gap-2">
               <div className="badge badge-outline">
                 status: <span className="ml-1 font-mono">{status}</span>
@@ -102,7 +112,6 @@ function App() {
               <button className="btn btn-sm btn-primary" onClick={() => setSeed(x => x + 1)}>
                 Shuffle refs
               </button>
-
               <button
                 className="btn btn-sm btn-outline"
                 onClick={() => {
@@ -112,7 +121,6 @@ function App() {
               >
                 Invalidate users (all) + re-resolve
               </button>
-
               <button
                 className="btn btn-sm btn-outline"
                 onClick={() => {
@@ -122,7 +130,6 @@ function App() {
               >
                 Invalidate users u1 + re-resolve
               </button>
-
               <button
                 className="btn btn-sm btn-ghost"
                 onClick={() => {
@@ -131,7 +138,6 @@ function App() {
               >
                 Clear all stores + re-resolve
               </button>
-
               <button
                 className="btn btn-sm btn-ghost"
                 onClick={() => {

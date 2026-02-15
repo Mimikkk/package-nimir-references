@@ -8,56 +8,6 @@ importers:
 
   .: {}
 
-  apps/node-sample:
-    dependencies:
-      '@nimir/references':
-        specifier: workspace:*
-        version: link:../../libs/references
-    devDependencies:
-      tsx:
-        specifier: ^4.19.0
-        version: 4.21.0
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-
-  apps/react-sample:
-    dependencies:
-      '@nimir/references':
-        specifier: workspace:*
-        version: link:../../libs/references
-    devDependencies:
-      '@tailwindcss/vite':
-        specifier: ^4.1.18
-        version: 4.1.18(vite@6.4.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0))
-      '@types/react':
-        specifier: ^19.2.14
-        version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.14)
-      '@vitejs/plugin-react':
-        specifier: ^5.1.4
-        version: 5.1.4(vite@6.4.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0))
-      daisyui:
-        specifier: ^5.1.24
-        version: 5.5.18
-      react:
-        specifier: ^19.2.4
-        version: 19.2.4
-      react-dom:
-        specifier: ^19.2.4
-        version: 19.2.4(react@19.2.4)
-      tailwindcss:
-        specifier: ^4.1.12
-        version: 4.1.18
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vite:
-        specifier: ^6.0.0
-        version: 6.4.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)
-
   libs/references:
     devDependencies:
       '@tailwindcss/vite':
@@ -108,6 +58,56 @@ importers:
       vitest:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@24.10.12)(jiti@2.6.1)(jsdom@28.0.0)(lightningcss@1.31.1)(tsx@4.21.0)
+
+  samples/node-sample:
+    dependencies:
+      '@nimir/references':
+        specifier: workspace:*
+        version: link:../../libs/references
+    devDependencies:
+      tsx:
+        specifier: ^4.19.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
+  samples/react-sample:
+    dependencies:
+      '@nimir/references':
+        specifier: workspace:*
+        version: link:../../libs/references
+    devDependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.1.18
+        version: 4.1.18(vite@6.4.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0))
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@vitejs/plugin-react':
+        specifier: ^5.1.4
+        version: 5.1.4(vite@6.4.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0))
+      daisyui:
+        specifier: ^5.1.24
+        version: 5.5.18
+      react:
+        specifier: ^19.2.4
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.2.4
+        version: 19.2.4(react@19.2.4)
+      tailwindcss:
+        specifier: ^4.1.12
+        version: 4.1.18
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)
 
 packages:
 

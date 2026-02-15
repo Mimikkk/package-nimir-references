@@ -1,2 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Roboto:wght@400;700&display=swap');
 @import 'tailwindcss';
-@plugin 'daisyui';
+@plugin 'daisyui' {
+  themes: night;
+}
+
+body {
+  @apply subpixel-antialiased;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
+}
