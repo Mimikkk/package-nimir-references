@@ -41,7 +41,7 @@ export type SourceRegistry = Record<string, Source>;
 export type SourceOf<TSource extends Source> = TSource extends Source<infer TValue> ? TValue : never;
 
 type StrRef = Nil<string>;
-type ArrRef = Nil<string>[];
+type ArrRef = Nil<StrRef[]>;
 type PotentialRef = StrRef | ArrRef;
 
 type DirectRef<TSources extends SourceRegistry> = keyof TSources;

@@ -41,7 +41,7 @@ export class API<TSources extends SourceRegistry> {
   }
 
   invalidate(source: Extract<keyof TSources, string>, ids?: string[]): void {
-    void this.stores.get(source)?.invalidate(ids);
+    this.stores.get(source)?.invalidate(ids);
   }
 
   async clear(): Promise<void> {

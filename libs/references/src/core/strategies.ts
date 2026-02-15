@@ -41,7 +41,7 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
 
     if (this.timestampMs > 0 && Date.now() - this.timestampMs > this.ttlMs) {
       this.warmup = null;
-      void this.ensureWarmUp().catch(FcNoop);
+      this.ensureWarmUp().catch(FcNoop);
     }
 
     return new Map(ids.map(id => [id, this.positives.get(id) ?? null]));
@@ -103,7 +103,7 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
       entries.push([id, item]);
     }
 
-    void this.cache?.storePositives(entries).catch(FcNoop);
+    this.cache?.storePositives(entries).catch(FcNoop);
     this.timestampMs = Date.now();
   }
 }
@@ -280,7 +280,7 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
     }
 
     if (this.cache && entries.length > 0) {
-      void this.cache.storePositives(entries).catch(FcNoop);
+      this.cache.storePositives(entries).catch(FcNoop);
     }
 
     const missing = ids.filter(id => !fetchedIds.has(id));
@@ -302,7 +302,7 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
       deferreds.get(id)?.(null);
     }
 
-    void this.cache?.storeNegatives(ids, reason, this.ttlMs).catch(FcNoop);
+    this.cache?.storeNegatives(ids, reason, this.ttlMs).catch(FcNoop);
   }
 
   private handleFetchError(
