@@ -30,21 +30,37 @@
   "type": "module",
   "exports": {
     ".": {
+      "development": {
+        "types": "./src/exports/lib.ts",
+        "default": "./src/exports/lib.ts"
+      },
       "types": "./build/exports/lib.d.ts",
       "require": "./build/references.cjs",
       "default": "./build/references.es.js"
     },
     "./react": {
+      "development": {
+        "types": "./src/exports/react.ts",
+        "default": "./src/exports/react.ts"
+      },
       "types": "./build/exports/react.d.ts",
       "require": "./build/react.cjs",
       "default": "./build/react.es.js"
     },
     "./idb-keyval": {
+      "development": {
+        "types": "./src/exports/idb-keyval.ts",
+        "default": "./src/exports/idb-keyval.ts"
+      },
       "types": "./build/exports/idb-keyval.d.ts",
       "require": "./build/idb-keyval.cjs",
       "default": "./build/idb-keyval.es.js"
     },
     "./in-memory": {
+      "development": {
+        "types": "./src/exports/in-memory.ts",
+        "default": "./src/exports/in-memory.ts"
+      },
       "types": "./build/exports/in-memory.d.ts",
       "require": "./build/in-memory.cjs",
       "default": "./build/in-memory.es.js"
