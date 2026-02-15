@@ -3,9 +3,7 @@ import type { RefFields, Resolve, Source, SourceRegistry } from './types.ts';
 
 const maxDepth = 10;
 
-export type ResolveSyncResult<TData, TSources extends SourceRegistry, TFields extends RefFields<TData, TSources>> =
-  | { status: 'ok'; result: Resolve<TData, TSources, TFields> }
-  | { status: 'needs-resolve' };
+export type ResolveSyncResult<TData> = { status: 'ok'; result: TData } | { status: 'needs-resolve' };
 
 type DirectRef = string;
 type NestedRef = { source: string; fields: Fields };
@@ -61,7 +59,7 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
   resolveSync<TData, TFields extends RefFields<TData, TSources>>(
     item: TData,
     fields: TFields,
-  ): ResolveSyncResult<TData, TSources, TFields> {
+  ): ResolveSyncResult<Resolve<TData, TSources, TFields>> {
     if (isNil(item)) {
       return { status: 'ok', result: item };
     }

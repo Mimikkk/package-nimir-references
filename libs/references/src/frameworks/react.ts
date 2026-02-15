@@ -1,18 +1,34 @@
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { API, ResolveOptions } from 'src/core/API.ts';
 import { Fn, isNil, Nil } from 'src/core/common';
 import { FnAwait, SourcesContext, sourcesContext } from 'src/core/defineReferences.ts';
 import { ReferenceResolver } from 'src/core/referenceResolver.ts';
 import { RefFields, Resolve, Source, SourceRegistry } from 'src/core/types.ts';
 
+/**
+ * The status of the data resolution.
+ * - 'pending' - Fetch is not yet completed.
+ * - 'error' - Fetch ended up with an error.
+ * - 'success' - Fetch was successful.
+ */
 type ResultStatus = 'pending' | 'error' | 'success';
+/**
+ * The status of the fetch operation.
+ * - 'fetching' - Fetch is in progress.
+ * - 'idle' - Fetch is not in progress.
+ */
 type FetchStatus = 'fetching' | 'idle';
 
 interface UseReferencesResult<TResult> {
+  /** The error that occurred while fetching the data. */
   error: unknown | undefined;
+  /** The fetched data. */
   result: TResult | undefined;
+  /** The status of the data resolution. */
   status: ResultStatus;
+  /** The status of the fetch operation. */
   fetchStatus: FetchStatus;
+  /** Invalidates the data resolution and triggers a new fetch. */
   invalidate: () => Promise<void>;
 }
 
@@ -24,6 +40,11 @@ interface UseResolve<
 > {
   (...params: Parameters<THook>): UseReferencesResult<TResult>;
 }
+
+const errors = {
+  unmounted: new Error('useReferences unmounted'),
+  cancelled: new Error('Cancelled by new resolve call'),
+};
 
 export class ReactAPI<TSources extends SourceRegistry> extends API<TSources> {
   static from<TSources extends SourceRegistry>(
@@ -43,7 +64,7 @@ export class ReactAPI<TSources extends SourceRegistry> extends API<TSources> {
   ): UseResolve<THook, TSources, TFields, TResult> {
     const self = this;
 
-    return function useResolve(...params: Parameters<THook>): UseReferencesResult<TResult> {
+    return function useReferences(...params: Parameters<THook>): UseReferencesResult<TResult> {
       return self.use(hook(...params), options);
     };
   }
@@ -52,16 +73,24 @@ export class ReactAPI<TSources extends SourceRegistry> extends API<TSources> {
     data: Nil<TData>,
     options: ResolveOptions<TData, TFields, TSources, TResult>,
   ): UseReferencesResult<TResult> {
-    const [result, setResult] = useState<TResult | undefined>(undefined);
-    const [status, setStatus] = useState<ResultStatus>('pending');
+    const initialSync = useMemo(() => this.resolver.resolveSync(data, options.fields), [data]);
+
+    const [result, setResult] = useState<TResult | undefined>(
+      initialSync.status === 'ok'
+        ? isNil(initialSync.result)
+          ? undefined
+          : (options.transform?.(initialSync.result!) ?? (initialSync.result as TResult))
+        : undefined,
+    );
+    const [status, setStatus] = useState<ResultStatus>(initialSync.status === 'ok' ? 'success' : 'pending');
     const [fetchStatus, setFetchStatus] = useState<FetchStatus>('idle');
     const [error, setError] = useState<unknown | undefined>(undefined);
     const inflightRef = useRef<PromiseWithResolvers<void> | null>(null);
+    const initialRef = useRef(true);
 
     const resolve = useEffectEvent(async () => {
-      if (isNil(data)) return;
       if (inflightRef.current) {
-        inflightRef.current.reject(new Error('Cancelled by new resolve call'));
+        inflightRef.current.reject(errors.cancelled);
         inflightRef.current = null;
       }
 
@@ -70,9 +99,10 @@ export class ReactAPI<TSources extends SourceRegistry> extends API<TSources> {
 
       try {
         setFetchStatus('fetching');
-        const res = (await this.inline(data, options)) as TResult;
+        const result = (await this.inline(data, options))!;
+
         if (inflightRef.current === resolvers) {
-          setResult(res);
+          setResult(result);
           setError(undefined);
           setStatus('success');
           resolvers.resolve();
@@ -95,11 +125,25 @@ export class ReactAPI<TSources extends SourceRegistry> extends API<TSources> {
     const invalidate = useCallback(() => resolve(), []);
 
     useEffect(() => {
+      if (initialRef.current && initialSync.status === 'ok') {
+        initialRef.current = false;
+        return;
+      }
+
+      initialRef.current = false;
+      const sync = this.resolver.resolveSync(data, options.fields);
+      if (sync.status === 'ok') {
+        setResult(isNil(sync.result) ? undefined : (options.transform?.(sync.result!) ?? (sync.result as TResult)));
+        setStatus('success');
+        return;
+      }
+
+      if (isNil(data)) return;
       resolve();
 
       return () => {
         if (!inflightRef.current) return;
-        inflightRef.current.reject(new Error('useReferences unmounted'));
+        inflightRef.current.reject(errors.unmounted);
         inflightRef.current = null;
       };
     }, [data]);

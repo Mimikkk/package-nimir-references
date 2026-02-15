@@ -5,8 +5,8 @@ import type { RefFields, Resolve, Source, SourceRegistry } from './types.ts';
 
 export class API<TSources extends SourceRegistry> {
   protected constructor(
-    private readonly stores: ReadonlyMap<string, Source>,
-    private readonly resolver: ReferenceResolver<TSources>,
+    protected readonly stores: ReadonlyMap<string, Source>,
+    protected readonly resolver: ReferenceResolver<TSources>,
   ) {}
 
   static from<TSources extends SourceRegistry>(
