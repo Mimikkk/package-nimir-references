@@ -13,7 +13,7 @@ export interface Source<TResource = unknown> {
    * Attempts to resolve IDs from application/cached data only.
    * Returns a map when all IDs can be resolved without external fetch; otherwise `null`.
    */
-  resolveFromMemory(ids: string[]): Map<string, TResource | null> | null;
+  resolveSync(ids: string[]): Map<string, TResource | null> | null;
 
   /**
    * Invalidates cached entries.

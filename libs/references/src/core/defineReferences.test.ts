@@ -78,7 +78,7 @@ describe('References - Builder', () => {
 
       await references.inline({ fId: a1.id }, { fields: { fId: 'A' } });
       expect(fetchAll).toHaveBeenCalledTimes(1);
-      references.invalidate('A');
+      await references.invalidate('A');
 
       await references.inline({ fId: a1.id }, { fields: { fId: 'A' } });
       expect(fetchAll).toHaveBeenCalledTimes(2);

@@ -78,22 +78,11 @@ export interface FetchAllStrategyOptions<TResource> {
   cache?: ReferenceCache<TResource>;
 }
 
-/**
- * Union of supported store strategies (`fetchByIds` or `fetchAll`).
- */
 export type ResourceStoreOptions<TResource> = FetchByIdsStrategyOptions<TResource> | FetchAllStrategyOptions<TResource>;
 
-/**
- * Internal store used by sources created through `SourcesBuilderContext.source(...)`.
- *
- * You usually don't construct it directly; it's exposed as `ResourceStore` for advanced usage.
- */
 export class ReferenceStore<TResource> implements Source<TResource> {
   private constructor(private readonly strategy: ResourceStoreStrategy<TResource>) {}
 
-  /**
-   * Creates a store from either `fetchAll` or `fetchByIds` options.
-   */
   static from<TResource>(options: ResourceStoreOptions<TResource>): ReferenceStore<TResource> {
     const cache = options.cache ?? null;
     const keyBy = options.keyBy ?? byId<TResource>;
@@ -118,23 +107,23 @@ export class ReferenceStore<TResource> implements Source<TResource> {
     return new ReferenceStore(strategy);
   }
 
-  resolve(ids: string[]): Awaitable<Map<string, TResource | null>> {
-    return this.strategy.resolve(ids);
+  async resolve(ids: string[]): Promise<Map<string, TResource | null>> {
+    return await this.strategy.resolve(ids);
   }
 
-  resolveFromMemory(ids: string[]): Map<string, TResource | null> | null {
-    return this.strategy.tryResolveSync(ids);
+  resolveSync(ids: string[]): Map<string, TResource | null> | null {
+    return this.strategy.resolveSync(ids);
   }
 
-  warmup(): Promise<void> {
-    return this.strategy.warmup();
+  async warmup(): Promise<void> {
+    return await this.strategy.warmup();
   }
 
-  invalidate(ids?: string[]): Promise<void> {
-    return this.strategy.invalidate(ids);
+  async invalidate(ids?: string[]): Promise<void> {
+    return await this.strategy.invalidate(ids);
   }
 
-  clearAll(): Promise<void> {
-    return this.strategy.clearAll();
+  async clearAll(): Promise<void> {
+    return await this.strategy.clearAll();
   }
 }

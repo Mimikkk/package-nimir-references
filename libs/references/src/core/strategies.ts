@@ -2,11 +2,9 @@ import type { Awaitable } from './common.ts';
 import { readHttpStatus, statusToNegativeReason } from './httpErrors.ts';
 import type { NegativeEntry, NegativeReason, ReferenceCache } from './referenceCache.ts';
 
-export const noop = () => {};
-
 export interface ResourceStoreStrategy<TResource> {
+  resolveSync(ids: string[]): Map<string, TResource | null> | null;
   resolve(ids: string[]): Promise<Map<string, TResource | null>>;
-  tryResolveSync(ids: string[]): Map<string, TResource | null> | null;
   invalidate(ids?: string[]): Promise<void>;
   clearAll(): Promise<void>;
   warmup(): Promise<void>;
@@ -23,7 +21,7 @@ export interface FetchAllOptions<TResource> extends StrategyOptions<TResource> {
 }
 
 export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResource> {
-  private warmupRef: Promise<void> | null = null;
+  private fetchRef: Promise<void> | null = null;
   private timestampMs = 0;
   private readonly positives = new Map<string, TResource>();
   private readonly negatives = new Map<string, NegativeEntry>();
@@ -40,17 +38,17 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
   }
 
   async resolve(ids: string[]): Promise<Map<string, TResource | null>> {
-    await this.ensureWarmUp();
+    await this.fetch();
 
     if (this.timestampMs > 0 && Date.now() - this.timestampMs > this.ttlMs) {
-      this.warmupRef = null;
-      this.ensureWarmUp().catch(noop);
+      this.fetchRef = null;
+      this.fetch();
     }
 
     return new Map(ids.map(id => [id, this.positives.get(id) ?? null]));
   }
 
-  tryResolveSync(ids: string[]): Map<string, TResource | null> | null {
+  resolveSync(ids: string[]): Map<string, TResource | null> | null {
     if (this.timestampMs === 0) return null;
     return new Map(ids.map(id => [id, this.positives.get(id) ?? null]));
   }
@@ -61,36 +59,36 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
         this.positives.delete(id);
         this.negatives.delete(id);
       }
-      await this.cache?.removeByIds(ids).catch(noop);
+      await this.cache?.removeByIds(ids);
       return;
     }
 
     this.positives.clear();
     this.negatives.clear();
-    this.warmupRef = null;
+    this.fetchRef = null;
     this.timestampMs = 0;
-    await this.cache?.clear().catch(noop);
+    await this.cache?.clear();
   }
 
   async clearAll(): Promise<void> {
     this.positives.clear();
     this.negatives.clear();
-    this.warmupRef = null;
+    this.fetchRef = null;
     this.timestampMs = 0;
     await this.cache?.clear();
   }
 
   warmup(): Promise<void> {
-    return this.ensureWarmUp();
+    return this.fetch();
   }
 
-  private ensureWarmUp(): Promise<void> {
-    this.warmupRef ??= this.doWarmUp().catch(error => {
-      this.warmupRef = null;
+  private fetch(): Promise<void> {
+    this.fetchRef ??= this.doWarmUp().catch(error => {
+      this.fetchRef = null;
       throw error;
     });
 
-    return this.warmupRef;
+    return this.fetchRef;
   }
 
   private async doWarmUp(): Promise<void> {
@@ -115,7 +113,7 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
       entries.push([id, item]);
     }
 
-    this.cache?.storePositives(entries).catch(noop);
+    this.cache?.storePositives(entries);
     this.timestampMs = Date.now();
   }
 }
@@ -186,7 +184,7 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
     return result;
   }
 
-  tryResolveSync(ids: string[]): Map<string, TResource | null> | null {
+  resolveSync(ids: string[]): Map<string, TResource | null> | null {
     const result = new Map<string, TResource | null>();
     for (const id of ids) {
       const cached = this.positives.get(id);
@@ -210,13 +208,13 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
         this.positives.delete(id);
         this.negatives.delete(id);
       }
-      await this.cache?.removeByIds(ids).catch(noop);
+      await this.cache?.removeByIds(ids);
       return;
     }
 
     this.positives.clear();
     this.negatives.clear();
-    await this.cache?.clear().catch(noop);
+    await this.cache?.clear();
   }
 
   async clearAll(): Promise<void> {
@@ -327,7 +325,7 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
     }
 
     if (this.cache && entries.length > 0) {
-      this.cache.storePositives(entries).catch(noop);
+      this.cache.storePositives(entries);
     }
 
     const missing = ids.filter(id => !fetchedIds.has(id));
@@ -349,7 +347,7 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
       deferreds.get(id)?.(null);
     }
 
-    this.cache?.storeNegatives(ids, reason, this.ttlMs).catch(noop);
+    this.cache?.storeNegatives(ids, reason, this.ttlMs);
   }
 
   private handleFetchError(

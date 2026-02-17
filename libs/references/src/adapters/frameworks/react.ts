@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { Fn, isNil } from '../../core/common.ts';
-import { createReferenceContext, FnAwait, SourcesContext } from '../../core/defineReferences.ts';
-import { ReferenceResolver } from '../../core/referenceResolver.ts';
-import { RefFields, Resolve, Source, SourceRegistry } from '../../core/types.ts';
-import { ResolveOptions, Refs as VanillaRefs } from './vanilla.ts';
+import { type Fn, type FnAwait, isNil } from '../../core/common.ts';
+import { createReferenceContext, type SourcesContext } from '../../core/defineReferences.ts';
+import type { ReferenceResolver } from '../../core/referenceResolver.ts';
+import type { RefFields, Resolve, Source, SourceRegistry } from '../../core/types.ts';
+import { type ResolveOptions, Refs as VanillaRefs } from './vanilla.ts';
 
 /**
  * The status of the data resolution.
@@ -12,6 +12,7 @@ import { ResolveOptions, Refs as VanillaRefs } from './vanilla.ts';
  * - 'success' - Fetch was successful.
  */
 type ResultStatus = 'pending' | 'error' | 'success';
+
 /**
  * The status of the fetch operation.
  * - 'fetching' - Fetch is in progress.
@@ -32,7 +33,7 @@ interface UseReferencesResult<TResult> {
   invalidate: () => Promise<void>;
 }
 
-interface UseResolve<
+interface UseReferences<
   THook extends Fn,
   TSources extends SourceRegistry,
   TFields extends RefFields<FnAwait<THook>, TSources>,
@@ -51,24 +52,24 @@ function toResult<TData, TSources extends SourceRegistry, TFields extends RefFie
 
 export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources> {
   static from<TSources extends SourceRegistry>(
-    stores: ReadonlyMap<string, Source>,
+    stores: ReadonlyMap<Extract<keyof TSources, string>, Source>,
     resolver: ReferenceResolver<TSources>,
   ) {
     return new this(stores, resolver);
   }
 
   hook<
-    THook extends Fn,
-    TFields extends RefFields<FnAwait<THook>, TSources>,
-    TResult = Resolve<FnAwait<THook>, TSources, TFields>,
+    TUse extends Fn,
+    TFields extends RefFields<FnAwait<TUse>, TSources>,
+    TResult = Resolve<FnAwait<TUse>, TSources, TFields>,
   >(
-    hook: THook,
-    options: ResolveOptions<FnAwait<THook>, TFields, TSources, TResult>,
-  ): UseResolve<THook, TSources, TFields, TResult> {
+    use: TUse,
+    options: ResolveOptions<FnAwait<TUse>, TFields, TSources, TResult>,
+  ): UseReferences<TUse, TSources, TFields, TResult> {
     const self = this;
 
-    return function useReferences(...params: Parameters<THook>): UseReferencesResult<TResult> {
-      return self.use(hook(...params), options);
+    return function useReferences(...params) {
+      return self.use(use(...params), options);
     };
   }
 
@@ -76,12 +77,12 @@ export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources>
     data: TData,
     options: ResolveOptions<TData, TFields, TSources, TResult>,
   ): UseReferencesResult<TResult> {
-    const sync = useMemo(() => this.resolver.resolveFromMemory(data, options.fields), [data]);
+    const memory = useMemo(() => this.resolver.resolveSync(data, options.fields), [data]);
 
     const [result, setResult] = useState<TResult | undefined>(() =>
-      sync.status === 'ok' ? toResult(sync.result, options.transform) : undefined,
+      memory.status === 'ok' ? toResult(memory.result, options.transform) : undefined,
     );
-    const [status, setStatus] = useState<ResultStatus>(sync.status === 'ok' ? 'success' : 'pending');
+    const [status, setStatus] = useState<ResultStatus>(memory.status === 'ok' ? 'success' : 'pending');
     const [fetchStatus, setFetchStatus] = useState<FetchStatus>('idle');
     const [error, setError] = useState<unknown | undefined>(undefined);
     const isFirstRenderRef = useRef(false);
@@ -115,30 +116,28 @@ export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources>
     const invalidate = useCallback(() => resolve(), []);
 
     useEffect(() => {
-      if (isFirstRenderRef.current === false && sync.status === 'ok') {
-        setResult(toResult(sync.result, options.transform));
+      if (isNil(data)) {
+        isFirstRenderRef.current = true;
+        return;
+      }
+
+      if (isFirstRenderRef.current === false && memory.status === 'ok') {
+        setResult(toResult(memory.result, options.transform));
         isFirstRenderRef.current = true;
         return;
       }
       isFirstRenderRef.current = true;
 
-      if (sync.status === 'ok') {
-        setResult(toResult(sync.result, options.transform));
+      if (memory.status === 'ok') {
+        setResult(toResult(memory.result, options.transform));
         setStatus('success');
         return;
       }
 
-      if (isNil(data)) return;
       resolve();
     }, [data]);
 
-    return {
-      result,
-      error,
-      status,
-      fetchStatus,
-      invalidate,
-    };
+    return { result, error, status, fetchStatus, invalidate };
   }
 }
 
@@ -146,5 +145,15 @@ export function defineReferences<TSources extends SourceRegistry>(
   sources: (context: SourcesContext) => TSources,
 ): Refs<TSources> {
   const { stores, resolver } = createReferenceContext(sources);
+
   return Refs.from(stores, resolver);
 }
+
+export type SourcesOf<TRefs extends Refs<any>> =
+  TRefs extends Refs<infer TSources extends SourceRegistry> ? TSources : never;
+
+export type ResolveOf<TType extends Fn> = TType extends (
+  ...params: any[]
+) => Promise<infer TData> | UseReferencesResult<infer TData>
+  ? TData
+  : never;

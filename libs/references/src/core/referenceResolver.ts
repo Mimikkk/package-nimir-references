@@ -3,7 +3,7 @@ import type { RefFields, Resolve, Source, SourceRegistry } from './types.ts';
 
 const maxDepth = 10;
 
-export type ResolveSyncResult<TData> = { status: 'ok'; result: TData } | { status: 'needs-resolve' };
+export type MemoryResolveResult<TData> = { status: 'ok'; result: TData } | { status: 'needs-resolve' };
 
 type DirectRef = string;
 type NestedRef = { source: string; fields: Fields };
@@ -27,6 +27,7 @@ const isFields = (value: Field): value is Fields => typeof value === 'object' &&
 
 function addSourceIds(map: Map<string, Set<string>>, source: string, values: unknown[]): void {
   let set = map.get(source);
+
   if (!set) {
     set = new Set<string>();
     map.set(source, set);
@@ -49,29 +50,30 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
   async resolve<TData, TFields extends RefFields<TData, TSources>>(
     item: TData,
     fields: TFields,
-  ): Promise<Resolve<TData, TSources, TFields> | Extract<TData, null | undefined>> {
+  ): Promise<Resolve<TData, TSources, TFields>> {
     if (isNil(item)) {
       return item;
     }
-    const out = await this.runLoop(item, fields as Fields, this.fetchBatchAsync.bind(this));
+
+    const out = await this.run(item, fields as Fields);
     return out.result as Resolve<TData, TSources, TFields>;
   }
 
-  resolveFromMemory<TData, TFields extends RefFields<TData, TSources>>(
+  resolveSync<TData, TFields extends RefFields<TData, TSources>>(
     item: TData,
     fields: TFields,
-  ): ResolveSyncResult<Resolve<TData, TSources, TFields>> {
+  ): MemoryResolveResult<Resolve<TData, TSources, TFields>> {
     if (isNil(item)) {
       return { status: 'ok', result: item };
     }
-    const out = this.runLoopSync(item, fields as Fields);
+    const result = this.runSync(item, fields as Fields);
 
-    return out.needsResolve
+    return result.needsResolve
       ? { status: 'needs-resolve' }
-      : { status: 'ok', result: out.result as Resolve<TData, TSources, TFields> };
+      : { status: 'ok', result: result.result as Resolve<TData, TSources, TFields> };
   }
 
-  private async fetchBatchAsync(sourceIdsMap: Map<string, Set<string>>): Promise<Map<string, Map<string, unknown>>> {
+  private async resolveLevel(sourceIdsMap: Map<string, Set<string>>): Promise<Map<string, Map<string, unknown>>> {
     const resolvedMaps = new Map<string, Map<string, unknown>>();
     await Promise.all(
       Array.from(sourceIdsMap.entries()).map(async ([source, ids]) => {
@@ -84,53 +86,51 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
     return resolvedMaps;
   }
 
-  private fetchBatchSync(sourceIdsMap: Map<string, Set<string>>): Map<string, Map<string, unknown>> | null {
+  private resolveLevelSync(sourceIdsMap: Map<string, Set<string>>): Map<string, Map<string, unknown>> | null {
     const resolvedMaps = new Map<string, Map<string, unknown>>();
     for (const [source, ids] of sourceIdsMap.entries()) {
       const store = this.sources.get(source);
-      if (!store) return null;
+      if (!store) continue;
 
-      const resolved = store.resolveFromMemory(Array.from(ids));
+      const resolved = store.resolveSync(Array.from(ids));
       if (resolved === null) return null;
       resolvedMaps.set(source, resolved as Map<string, unknown>);
     }
     return resolvedMaps;
   }
 
-  private async runLoop(
-    item: unknown,
-    fields: Fields,
-    fetchBatch: (m: Map<string, Set<string>>) => Promise<Map<string, Map<string, unknown>>>,
-  ): Promise<{ result: Target | Target[] }> {
-    const { result, queue } = this.createRuntime(item, fields);
+  private assertDepth(depth: number): void {
+    if (depth >= maxDepth) {
+      throw new Error(
+        `Reference resolution exceeded maximum depth of ${maxDepth}. Check for circular references in your fields configuration.`,
+      );
+    }
+  }
 
-    let depth = 0;
-    while (queue.length > 0) {
-      if (++depth > maxDepth) break;
+  private async run(item: unknown, fields: Fields): Promise<{ result: Target | Target[] }> {
+    const { result, queue } = this.prepare(item, fields);
 
+    for (let depth = 0; queue.length > 0; depth++) {
+      this.assertDepth(depth);
       const { references, sourceIdsMap } = this.collectLevel(queue);
-
       if (references.length === 0) break;
 
-      const resolvedMaps = await fetchBatch(sourceIdsMap);
+      const resolvedMaps = await this.resolveLevel(sourceIdsMap);
       this.applyResolved(references, resolvedMaps, queue);
     }
 
     return { result };
   }
 
-  private runLoopSync(item: unknown, fields: Fields): { result: Target | Target[]; needsResolve: boolean } {
-    const { result, queue } = this.createRuntime(item, fields);
+  private runSync(item: unknown, fields: Fields): { result: Target | Target[]; needsResolve: boolean } {
+    const { result, queue } = this.prepare(item, fields);
 
-    let depth = 0;
-    while (queue.length > 0) {
-      if (++depth > maxDepth) break;
-
+    for (let depth = 0; queue.length > 0; depth++) {
+      this.assertDepth(depth);
       const { references, sourceIdsMap } = this.collectLevel(queue);
-
       if (references.length === 0) break;
 
-      const resolvedMaps = this.fetchBatchSync(sourceIdsMap);
+      const resolvedMaps = this.resolveLevelSync(sourceIdsMap);
       if (resolvedMaps === null) return { result, needsResolve: true };
       this.applyResolved(references, resolvedMaps, queue);
     }
@@ -138,7 +138,7 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
     return { result, needsResolve: false };
   }
 
-  private createRuntime(item: unknown, fields: Fields): { result: Target | Target[]; queue: QueueItem[] } {
+  private prepare(item: unknown, fields: Fields): { result: Target | Target[]; queue: QueueItem[] } {
     const result = structuredClone(item) as Target | Target[];
     const queue: QueueItem[] = Array.isArray(result)
       ? result.map(target => ({ target, fields }))
@@ -152,7 +152,7 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
     const references: Ref[] = [];
 
     for (const entry of level) {
-      this.collect(entry.target, entry.fields, sourceIdsMap, references);
+      this.collectRefs(entry.target, entry.fields, sourceIdsMap, references);
     }
 
     return { references, sourceIdsMap };
@@ -192,41 +192,39 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
     }
   }
 
-  private collect(target: Target, fields: Fields, sourceIdsMap: Map<string, Set<string>>, references: Ref[]): void {
+  private collectRefs(target: Target, fields: Fields, sourceIdsMap: Map<string, Set<string>>, references: Ref[]): void {
     for (const [property, field] of Object.entries(fields)) {
       const value = target[property];
-      if (value === undefined || value === null) continue;
+      if (isNil(value)) continue;
 
       if (isDirectRef(field)) {
         const values = Array.isArray(value) ? value : [value];
         addSourceIds(sourceIdsMap, field, values);
-        references.push({ target, property, source: field, isArray: Array.isArray(value) });
+        const isArray = Array.isArray(value);
+
+        references.push({ target, property, source: field, isArray });
         continue;
       }
 
       if (isNestedRef(field)) {
         const values = Array.isArray(value) ? value : [value];
         addSourceIds(sourceIdsMap, field.source, values);
-        references.push({
-          target,
-          property,
-          source: field.source,
-          isArray: Array.isArray(value),
-          fields: field.fields,
-        });
+        const isArray = Array.isArray(value);
+
+        references.push({ target, property, source: field.source, isArray, fields: field.fields });
         continue;
       }
 
       if (!isFields(field)) continue;
 
       if (Array.isArray(value)) {
-        for (const child of value) {
-          if (child && typeof child === 'object') {
-            this.collect(child as Target, field, sourceIdsMap, references);
+        for (const element of value) {
+          if (element && typeof element === 'object') {
+            this.collectRefs(element as Target, field, sourceIdsMap, references);
           }
         }
       } else if (typeof value === 'object') {
-        this.collect(value as Target, field, sourceIdsMap, references);
+        this.collectRefs(value as Target, field, sourceIdsMap, references);
       }
     }
   }

@@ -1,6 +1,6 @@
-import { isNil, type Fn } from '../../core/common.ts';
-import { createReferenceContext, FnAwait, SourcesContext } from '../../core/defineReferences.ts';
-import { ReferenceResolver } from '../../core/referenceResolver.ts';
+import { isNil, type Fn, type FnAwait } from '../../core/common.ts';
+import { createReferenceContext, type SourcesContext } from '../../core/defineReferences.ts';
+import type { ReferenceResolver } from '../../core/referenceResolver.ts';
 import type { RefFields, Resolve, Source, SourceRegistry } from '../../core/types.ts';
 
 export interface ResolveOptions<
@@ -50,8 +50,8 @@ export class Refs<TSources extends SourceRegistry> {
     };
   }
 
-  invalidate(source: Extract<keyof TSources, string>, ids?: string[]): void {
-    this.stores.get(source)?.invalidate(ids);
+  async invalidate(source: Extract<keyof TSources, string>, ids?: string[]): Promise<void> {
+    return await this.stores.get(source)?.invalidate(ids);
   }
 
   async warmup(): Promise<void> {
@@ -68,8 +68,10 @@ export function defineReferences<TSources extends SourceRegistry>(
 ): Refs<TSources> {
   const { stores, resolver } = createReferenceContext(sources);
 
-  return Refs.from<TSources>(stores, resolver);
+  return Refs.from(stores, resolver);
 }
 
-export type SourcesOf<TAPI extends Refs<any>> =
-  TAPI extends Refs<infer TSources extends SourceRegistry> ? TSources : never;
+export type SourcesOf<TRefs extends Refs<any>> =
+  TRefs extends Refs<infer TSources extends SourceRegistry> ? TSources : never;
+
+export type ResolveOf<TType extends Fn> = TType extends (...params: any[]) => Promise<infer TData> ? TData : never;

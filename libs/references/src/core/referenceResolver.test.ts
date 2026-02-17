@@ -180,7 +180,7 @@ describe('References - Resolver', () => {
     expect(result).toEqual({ fId: 'f1' });
   });
 
-  it('stops at MAX_RESOLVE_DEPTH to prevent infinite loops from deep/circular configs', async () => {
+  it('throws when resolution exceeds maximum depth', async () => {
     const a = { id: 'a1', bId: 'b1' };
     const b = { id: 'b1', aId: 'a1' };
     const resolver = createResolver({ A: [a], B: [b] });
@@ -194,9 +194,7 @@ describe('References - Resolver', () => {
 
     const item = { aId: 'a1' };
 
-    const result: any = await resolver.resolve(item, fields);
-
-    expect(result.aIdT).toBeTruthy();
+    await expect(resolver.resolve(item, fields)).rejects.toThrow('exceeded maximum depth');
   });
 
   it('resolves a nested array of refs (array of objects → array of objects with refs)', async () => {
@@ -216,41 +214,41 @@ describe('References - Resolver', () => {
     it('returns needs-resolve when source not warmed', () => {
       const resolver = createResolver({ A: [a1] });
       const item = { aId: 'f1' };
-      const out = resolver.resolveFromMemory(item, { aId: 'A' });
+      const out = resolver.resolveSync(item, { aId: 'A' });
       expect(out.status).toBe('needs-resolve');
     });
 
     it('returns ok with result when all refs in cache', async () => {
       const resolver = createResolver({ A: [a1, a2] });
       await resolver.resolve({ aId: 'f1' }, { aId: 'A' });
-      const out = resolver.resolveFromMemory({ aId: 'f1' }, { aId: 'A' });
+      const out = resolver.resolveSync({ aId: 'f1' }, { aId: 'A' });
       expect(out).toEqual({ status: 'ok', result: { aId: 'f1', aIdT: a1 } });
     });
 
     it('returns ok with null for missing id when fetchAll warmed (full collection known)', async () => {
       const resolver = createResolver({ A: [a1] });
       await resolver.resolve({ aId: 'f1' }, { aId: 'A' });
-      const out = resolver.resolveFromMemory({ aId: 'nonexistent' }, { aId: 'A' });
+      const out = resolver.resolveSync({ aId: 'nonexistent' }, { aId: 'A' });
       expect(out).toEqual({ status: 'ok', result: { aId: 'nonexistent', aIdT: null } });
     });
 
     it('returns ok for null/undefined item', () => {
       const resolver = createResolver({ A: [a1] });
-      expect(resolver.resolveFromMemory(null as { aId: Nil<string> } | null, { aId: 'A' })).toEqual({
+      expect(resolver.resolveSync(null as { aId: Nil<string> } | null, { aId: 'A' })).toEqual({
         status: 'ok',
         result: null,
       });
 
-      expect(resolver.resolveFromMemory(undefined as { aId: Nil<string> } | undefined, { aId: 'A' })).toEqual({
+      expect(resolver.resolveSync(undefined as { aId: Nil<string> } | undefined, { aId: 'A' })).toEqual({
         status: 'ok',
         result: undefined,
       });
     });
 
-    it('returns needs-resolve for unknown source', () => {
+    it('skips unknown source names in sync path', () => {
       const resolver = createResolver({});
-      const out = resolver.resolveFromMemory({ fId: 'f1' }, { fId: 'NonExistent' });
-      expect(out.status).toBe('needs-resolve');
+      const out = resolver.resolveSync({ fId: 'f1' }, { fId: 'NonExistent' });
+      expect(out).toEqual({ status: 'ok', result: { fId: 'f1' } });
     });
   });
 });
