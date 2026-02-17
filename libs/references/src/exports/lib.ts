@@ -19,10 +19,10 @@ export { ReferenceCache } from '../core/referenceCache.ts';
 export type { NegativeEntry, NegativeReason, PositiveEntry, ResourceEntry } from '../core/referenceCache.ts';
 export { ReferenceResolver } from '../core/referenceResolver.ts';
 export type { MemoryResolveResult as ResolveSyncResult } from '../core/referenceResolver.ts';
-export { ReferenceStore } from '../core/referenceStore.ts';
+export { ReferenceSource as ReferenceStore } from '../core/referenceSource.ts';
 export type {
-  FetchAllStrategyOptions,
-  FetchByIdsStrategyOptions,
-  ResourceStoreOptions,
-} from '../core/referenceStore.ts';
+  CompleteStrategyOptions as FetchAllStrategyOptions,
+  PartialStrategyOptions as FetchByIdsStrategyOptions,
+  ResourceSourceOptions as ResourceStoreOptions,
+} from '../core/referenceSource.ts';
 export type { RefFields, Resolve, Source, SourceRegistry } from '../core/types.ts';

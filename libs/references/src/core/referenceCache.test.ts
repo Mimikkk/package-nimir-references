@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createIdbKeyvalCache } from '../adapters/caches/idb-keyval.ts';
 import { ReferenceCache } from './referenceCache.ts';
-import { ReferenceStore } from './referenceStore.ts';
+import { ReferenceSource } from './referenceSource.ts';
 
 type Entity = { id: string };
 
@@ -18,11 +18,11 @@ describe('References - Cache', () => {
     const fetchFn = vi.fn(async (ids: string[]) => ids.map(entity));
     const storeName = `idb-test-${Date.now()}`;
 
-    const store1 = ReferenceStore.from<Entity>({ fetchByIds: fetchFn, cache: createCache(storeName) });
+    const store1 = ReferenceSource.from<Entity>({ batch: fetchFn, cache: createCache(storeName) });
     await store1.resolve(['a']);
     expect(fetchFn).toHaveBeenCalledTimes(1);
 
-    const store2 = ReferenceStore.from<Entity>({ fetchByIds: fetchFn, cache: createCache(storeName) });
+    const store2 = ReferenceSource.from<Entity>({ batch: fetchFn, cache: createCache(storeName) });
     const result = await store2.resolve(['a']);
 
     expect(result.get('a')).toEqual(entity('a'));
@@ -111,7 +111,7 @@ describe('References - Cache', () => {
     await cache.storePositives([['a', entity('a')]]);
     await cache.storeNegatives(['a'], 'not-found', 60_000);
 
-    await cache.removeByIds(['a']);
+    await cache.remove(['a']);
 
     const positives = await cache.positives(['a'], Infinity);
     const negatives = await cache.negatives(['a']);
@@ -146,12 +146,12 @@ describe('References - Cache', () => {
     const storeName = `idb-fetchall-${Date.now()}`;
     const fetchAll = vi.fn(async () => [a1, a2]);
 
-    const store1 = ReferenceStore.from<Entity>({ fetchAll, cache: createCache(storeName) });
+    const store1 = ReferenceSource.from<Entity>({ list: fetchAll, cache: createCache(storeName) });
     await store1.resolve([a1.id]);
     expect(fetchAll).toHaveBeenCalledTimes(1);
 
     const fetchAll2 = vi.fn(async () => [a1, a2]);
-    const store2 = ReferenceStore.from<Entity>({ fetchAll: fetchAll2, cache: createCache(storeName) });
+    const store2 = ReferenceSource.from<Entity>({ list: fetchAll2, cache: createCache(storeName) });
     const result = await store2.resolve([a1.id, a2.id]);
 
     expect(result.get(a1.id)).toEqual(a1);
@@ -163,8 +163,8 @@ describe('References - Cache', () => {
     const storeName = `idb-neg-${Date.now()}`;
     const fetch1 = vi.fn(async () => []);
 
-    const store1 = ReferenceStore.from<Entity>({
-      fetchByIds: fetch1,
+    const store1 = ReferenceSource.from<Entity>({
+      batch: fetch1,
       cache: createCache(storeName),
       ttlMs: 60_000,
     });
@@ -172,8 +172,8 @@ describe('References - Cache', () => {
     expect(fetch1).toHaveBeenCalledTimes(1);
 
     const fetch2 = vi.fn(async () => []);
-    const store2 = ReferenceStore.from<Entity>({
-      fetchByIds: fetch2,
+    const store2 = ReferenceSource.from<Entity>({
+      batch: fetch2,
       cache: createCache(storeName),
       ttlMs: 60_000,
     });

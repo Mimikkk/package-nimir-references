@@ -33,9 +33,11 @@ export class ReferenceCache<TResource> {
     for (const [key, value] of entries) {
       if (key.startsWith(NegativePrefix)) {
         const entry = value as NegativeEntry;
+
         if (now < entry.expiry) {
           negative.set(key.slice(NegativePrefix.length), entry);
         }
+
         continue;
       }
 
@@ -102,13 +104,11 @@ export class ReferenceCache<TResource> {
     return result;
   }
 
-  async storePositives(items: [id: string, data: TResource][]): Promise<void> {
-    if (items.length === 0) return;
+  async storePositives(entries: [id: string, data: TResource][]): Promise<void> {
+    if (entries.length === 0) return;
     const now = Date.now();
 
-    await this.cache.setMany(
-      items.map(([id, data]): [string, PositiveEntry<TResource>] => [id, { resource: data, updatedAt: now }]),
-    );
+    await this.cache.setMany(entries.map(([id, resource]) => [id, { resource, updatedAt: now }]));
   }
 
   async storeNegatives(ids: string[], reason: NegativeReason, ttlMs: number): Promise<void> {
@@ -119,7 +119,7 @@ export class ReferenceCache<TResource> {
     await this.cache.setMany(ids.map(id => [prefixNegative(id), entry]));
   }
 
-  async removeByIds(ids: string[]): Promise<void> {
+  async remove(ids: string[]): Promise<void> {
     await this.cache.delMany(ids.concat(ids.map(prefixNegative)));
   }
 

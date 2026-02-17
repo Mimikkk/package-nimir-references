@@ -6,7 +6,7 @@ describe('library entry', () => {
   it('loads from index without runtime-specific adapters', async () => {
     const references = defineReferences(c => ({
       User: c.source<{ id: string }>({
-        fetchByIds: async ids => ids.map(id => ({ id })),
+        batch: async ids => ids.map(id => ({ id })),
       }),
     }));
 

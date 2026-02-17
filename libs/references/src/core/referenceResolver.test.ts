@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { Nil } from './common.ts';
 import { ReferenceResolver } from './referenceResolver.ts';
-import { ReferenceStore } from './referenceStore.ts';
+import { ReferenceSource } from './referenceSource.ts';
 import type { SourceRegistry } from './types.ts';
 
 type Entity = { id: string };
@@ -14,9 +14,9 @@ const a2 = entity('f2');
 const b1 = entity('b1');
 
 function createResolver(configs: Record<string, Entity[]>): ReferenceResolver<SourceRegistry> {
-  const stores = new Map<string, ReferenceStore<Entity>>();
+  const stores = new Map<string, ReferenceSource<Entity>>();
   for (const [name, items] of Object.entries(configs)) {
-    const store = ReferenceStore.from({ fetchAll: () => items });
+    const store = ReferenceSource.from({ list: () => items });
     stores.set(name, store);
   }
 

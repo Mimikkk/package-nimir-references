@@ -1,5 +1,5 @@
 import { ReferenceResolver } from './referenceResolver.ts';
-import { ReferenceStore, type ResourceStoreOptions } from './referenceStore.ts';
+import { ReferenceSource, type ResourceSourceOptions } from './referenceSource.ts';
 import type { Source, SourceRegistry } from './types.ts';
 
 export interface SourcesContext {
@@ -10,12 +10,12 @@ export interface SourcesContext {
    * - `fetchByIds` to fetch the requested IDs (with batching, inflight-dedupe, negative caching).
    * - `fetchAll` to fetch and keep a whole collection (with TTL refresh).
    */
-  source<TData>(options: ResourceStoreOptions<TData>): Source<TData>;
+  source<TData>(options: ResourceSourceOptions<TData>): Source<TData>;
 }
 
 export const sourcesContext: SourcesContext = {
-  source<TData>(options: ResourceStoreOptions<TData>): Source<TData> {
-    return ReferenceStore.from(options);
+  source<TData>(options: ResourceSourceOptions<TData>): Source<TData> {
+    return ReferenceSource.from(options);
   },
 };
 

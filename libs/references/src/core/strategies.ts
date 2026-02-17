@@ -2,12 +2,11 @@ import type { Awaitable } from './common.ts';
 import { readHttpStatus, statusToNegativeReason } from './httpErrors.ts';
 import type { NegativeEntry, NegativeReason, ReferenceCache } from './referenceCache.ts';
 
-export interface ResourceStoreStrategy<TResource> {
+export interface SourceStrategy<TResource> {
   resolveSync(ids: string[]): Map<string, TResource | null> | null;
   resolve(ids: string[]): Promise<Map<string, TResource | null>>;
   invalidate(ids?: string[]): Promise<void>;
-  clearAll(): Promise<void>;
-  warmup(): Promise<void>;
+  restore(): Promise<void>;
 }
 
 export interface StrategyOptions<TResource> {
@@ -16,33 +15,33 @@ export interface StrategyOptions<TResource> {
   ttlMs: number;
 }
 
-export interface FetchAllOptions<TResource> extends StrategyOptions<TResource> {
-  fetchAll: () => Awaitable<TResource[]>;
+export interface CompleteSourceStrategyOptions<TResource> extends StrategyOptions<TResource> {
+  list: () => Awaitable<TResource[]>;
 }
 
-export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResource> {
+export class CompleteSourceStrategy<TResource> implements SourceStrategy<TResource> {
   private fetchRef: Promise<void> | null = null;
   private timestampMs = 0;
-  private readonly positives = new Map<string, TResource>();
-  private readonly negatives = new Map<string, NegativeEntry>();
 
   private constructor(
+    private readonly positives: Map<string, TResource>,
+    private readonly negatives: Map<string, NegativeEntry>,
     private readonly cache: ReferenceCache<TResource> | null,
     private readonly keyBy: (item: TResource) => string,
     private readonly ttlMs: number,
     private readonly fetchAll: () => Awaitable<TResource[]>,
   ) {}
 
-  static new<TResource>(options: FetchAllOptions<TResource>): FetchAllStrategy<TResource> {
-    return new FetchAllStrategy(options.cache, options.keyBy, options.ttlMs, options.fetchAll);
+  static new<TResource>(options: CompleteSourceStrategyOptions<TResource>): CompleteSourceStrategy<TResource> {
+    return new CompleteSourceStrategy(new Map(), new Map(), options.cache, options.keyBy, options.ttlMs, options.list);
   }
 
   async resolve(ids: string[]): Promise<Map<string, TResource | null>> {
-    await this.fetch();
+    await this.restore();
 
     if (this.timestampMs > 0 && Date.now() - this.timestampMs > this.ttlMs) {
       this.fetchRef = null;
-      this.fetch();
+      this.restore();
     }
 
     return new Map(ids.map(id => [id, this.positives.get(id) ?? null]));
@@ -59,7 +58,8 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
         this.positives.delete(id);
         this.negatives.delete(id);
       }
-      await this.cache?.removeByIds(ids);
+
+      await this.cache?.remove(ids);
       return;
     }
 
@@ -70,20 +70,8 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
     await this.cache?.clear();
   }
 
-  async clearAll(): Promise<void> {
-    this.positives.clear();
-    this.negatives.clear();
-    this.fetchRef = null;
-    this.timestampMs = 0;
-    await this.cache?.clear();
-  }
-
-  warmup(): Promise<void> {
-    return this.fetch();
-  }
-
-  private fetch(): Promise<void> {
-    this.fetchRef ??= this.doWarmUp().catch(error => {
+  async restore(): Promise<void> {
+    this.fetchRef ??= this.fetch().catch(error => {
       this.fetchRef = null;
       throw error;
     });
@@ -91,9 +79,10 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
     return this.fetchRef;
   }
 
-  private async doWarmUp(): Promise<void> {
+  private async fetch(): Promise<void> {
     if (this.cache) {
       const { positive, negative } = await this.cache.all(this.ttlMs);
+
       if (positive.size > 0) {
         for (const [id, item] of positive) this.positives.set(id, item);
         for (const [id, entry] of negative) this.negatives.set(id, entry);
@@ -107,6 +96,7 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
     this.negatives.clear();
 
     const entries: [string, TResource][] = [];
+
     for (const item of items) {
       const id = this.keyBy(item);
       this.positives.set(id, item);
@@ -118,12 +108,12 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
   }
 }
 
-export interface FetchByIdsOptions<TResource> extends StrategyOptions<TResource> {
+export interface PartialSourceStrategyOptions<TResource> extends StrategyOptions<TResource> {
   batchSize: number;
-  fetchByIds: (ids: string[]) => Awaitable<TResource[]>;
+  batch: (ids: string[]) => Awaitable<TResource[]>;
 }
 
-export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TResource> {
+export class PartialSourceStrategy<TResource> implements SourceStrategy<TResource> {
   private readonly positives = new Map<string, TResource>();
   private readonly negatives = new Map<string, NegativeEntry>();
   private readonly inflight = new Map<string, Promise<TResource | null>>();
@@ -133,11 +123,11 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
     private readonly keyBy: (item: TResource) => string,
     private readonly ttlMs: number,
     private readonly batchSize: number,
-    private readonly fetchByIds: (ids: string[]) => Awaitable<TResource[]>,
+    private readonly batch: (ids: string[]) => Awaitable<TResource[]>,
   ) {}
 
-  static new<TResource>(options: FetchByIdsOptions<TResource>): FetchByIdsStrategy<TResource> {
-    return new FetchByIdsStrategy(options.cache, options.keyBy, options.ttlMs, options.batchSize, options.fetchByIds);
+  static new<TResource>(options: PartialSourceStrategyOptions<TResource>): PartialSourceStrategy<TResource> {
+    return new PartialSourceStrategy(options.cache, options.keyBy, options.ttlMs, options.batchSize, options.batch);
   }
 
   async resolve(ids: string[]): Promise<Map<string, TResource | null>> {
@@ -208,7 +198,7 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
         this.positives.delete(id);
         this.negatives.delete(id);
       }
-      await this.cache?.removeByIds(ids);
+      await this.cache?.remove(ids);
       return;
     }
 
@@ -224,7 +214,7 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
     await this.cache?.clear();
   }
 
-  async warmup(): Promise<void> {
+  async restore(): Promise<void> {
     if (!this.cache) return;
     const { positive, negative } = await this.cache.all(this.ttlMs);
     for (const [id, item] of positive) this.positives.set(id, item);
@@ -372,7 +362,7 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
 
   private async batchFetch(ids: string[]): Promise<TResource[]> {
     if (!this.batchSize || ids.length <= this.batchSize) {
-      return this.fetchByIds(ids);
+      return this.batch(ids);
     }
 
     const chunks: string[][] = [];
@@ -380,7 +370,7 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
       chunks.push(ids.slice(i, i + this.batchSize));
     }
 
-    const results = await Promise.all(chunks.map(chunk => this.fetchByIds(chunk)));
+    const results = await Promise.all(chunks.map(chunk => this.batch(chunk)));
     return results.flat();
   }
 }

@@ -54,8 +54,8 @@ export class Refs<TSources extends SourceRegistry> {
     return await this.stores.get(source)?.invalidate(ids);
   }
 
-  async warmup(): Promise<void> {
-    await Promise.all(Array.from(this.stores.values()).map(s => s.warmup()));
+  async restore(): Promise<void> {
+    await Promise.all(Array.from(this.stores.values()).map(s => s.restore()));
   }
 
   async clear(): Promise<void> {
