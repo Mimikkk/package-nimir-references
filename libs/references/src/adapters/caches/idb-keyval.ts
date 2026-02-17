@@ -7,9 +7,9 @@ import {
   setMany,
   type UseStore,
 } from 'idb-keyval';
-import type { AdapterCache } from './adapterCache.ts';
+import type { Cache } from '../../core/cache.ts';
 
-class IdbKeyvalCache<TValue> implements AdapterCache<TValue> {
+class IdbKeyvalCache<TValue> implements Cache<TValue> {
   private constructor(private readonly store: UseStore) {}
 
   static from<TValue>({ database, table }: IdbKeyvalCacheOptions): IdbKeyvalCache<TValue> {
@@ -36,19 +36,9 @@ class IdbKeyvalCache<TValue> implements AdapterCache<TValue> {
   }
 }
 
-/**
- * Options for `createIdbKeyvalCache`.
- *
- * `table` is the object store name (passed to `idb-keyval`'s `createStore`).
- */
 export interface IdbKeyvalCacheOptions {
   database: string;
   table: string;
 }
 
-/**
- * Creates an IndexedDB-backed cache adapter using `idb-keyval`.
- *
- * Use it with `ResourceCache.new(...)` to enable persistence across sessions.
- */
 export const createIdbKeyvalCache = IdbKeyvalCache.from;

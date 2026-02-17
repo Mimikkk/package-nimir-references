@@ -656,7 +656,7 @@ async function compileOnlyExercise() {
       ({
         ...page,
         userId: seed % 2 === 0 ? 'u1' : 'u2',
-      }) satisfies ComplexPagePayload,
+      } satisfies ComplexPagePayload),
     { fields },
   );
   const resolved2 = await load(123);

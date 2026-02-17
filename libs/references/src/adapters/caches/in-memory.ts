@@ -1,13 +1,8 @@
-import type { AdapterCache } from './adapterCache.ts';
+import type { Cache } from '../../core/cache.ts';
 
-/**
- * Options for `createMemoryCache`.
- *
- * Currently unused (kept for forwards-compat).
- */
 export interface MemoryCacheOptions {}
 
-class MemoryCache<TValue> implements AdapterCache<TValue> {
+class MemoryCache<TValue> implements Cache<TValue> {
   private constructor(private readonly items: Map<string, TValue>) {}
 
   static from<TValue>(): MemoryCache<TValue> {

@@ -3,4 +3,4 @@
  *
  * React integration for `@nimir/references`.
  */
-export { defineReferences } from '../frameworks/react.ts';
+export { defineReferences } from '../adapters/frameworks/react.ts';

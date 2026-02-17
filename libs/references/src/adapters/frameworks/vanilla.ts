@@ -1,10 +1,19 @@
-import { isNil, type Fn } from './common.ts';
-import { FnAwait } from './defineReferences.ts';
-import { ReferenceResolver } from './referenceResolver.ts';
-import { noop } from './strategies.ts';
-import type { RefFields, Resolve, Source, SourceRegistry } from './types.ts';
+import { isNil, type Fn } from '../../core/common.ts';
+import { FnAwait } from '../../core/defineReferences.ts';
+import { ReferenceResolver } from '../../core/referenceResolver.ts';
+import type { RefFields, Resolve, Source, SourceRegistry } from '../../core/types.ts';
 
-export class API<TSources extends SourceRegistry> {
+export interface ResolveOptions<
+  TData,
+  TFields extends RefFields<TData, TSources>,
+  TSources extends SourceRegistry,
+  TResult = Resolve<TData, TSources, TFields>,
+> {
+  fields: TFields;
+  transform?: (result: Resolve<TData, TSources, TFields>) => TResult;
+}
+
+export class VanillaAPI<TSources extends SourceRegistry> {
   protected constructor(
     protected readonly stores: ReadonlyMap<string, Source>,
     protected readonly resolver: ReferenceResolver<TSources>,
@@ -13,7 +22,7 @@ export class API<TSources extends SourceRegistry> {
   static from<TSources extends SourceRegistry>(
     stores: ReadonlyMap<string, Source>,
     resolver: ReferenceResolver<TSources>,
-  ): API<TSources> {
+  ): VanillaAPI<TSources> {
     return new this(stores, resolver);
   }
 
@@ -45,25 +54,11 @@ export class API<TSources extends SourceRegistry> {
     this.stores.get(source)?.invalidate(ids);
   }
 
-  /**
-   * Loads currently cached results from all sources into app memory.
-   * Use in useEffect for eager hydration before first resolve.
-   */
-  warmup(): Promise<void> {
-    return Promise.all(Array.from(this.stores.values()).map(s => s.warmup?.() ?? Promise.resolve())).then(noop);
+  async warmup(): Promise<void> {
+    await Promise.all(Array.from(this.stores.values()).map(s => s.warmup()));
   }
 
   async clear(): Promise<void> {
-    await Promise.all(Array.from(this.stores.values()).map(store => store.invalidate()));
+    await Promise.all(Array.from(this.stores.values()).map(s => s.invalidate()));
   }
-}
-
-export interface ResolveOptions<
-  TData,
-  TFields extends RefFields<TData, TSources>,
-  TSources extends SourceRegistry,
-  TResult = Resolve<TData, TSources, TFields>,
-> {
-  fields: TFields;
-  transform?: (result: Resolve<TData, TSources, TFields>) => TResult;
 }

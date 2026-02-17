@@ -88,7 +88,8 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
     for (const [source, ids] of sourceIdsMap.entries()) {
       const store = this.sources.get(source);
       if (!store) return null;
-      const resolved = store.tryResolveSync?.(Array.from(ids));
+
+      const resolved = store.resolveFromMemory(Array.from(ids));
       if (resolved === null) return null;
       resolvedMaps.set(source, resolved as Map<string, unknown>);
     }

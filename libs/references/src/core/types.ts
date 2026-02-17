@@ -1,11 +1,5 @@
 import type { Awaitable, Nil } from './common.ts';
 
-/**
- * A named source of resources addressable by string IDs.
- *
- * Sources are created via `defineReferences(...).source(...)`.
- * The resolver calls `resolve(ids)` and expects a map for the requested IDs.
- */
 export interface Source<TResource = unknown> {
   /**
    * Resolves the given IDs.
@@ -19,7 +13,7 @@ export interface Source<TResource = unknown> {
    * Attempts to resolve IDs from application/cached data only.
    * Returns a map when all IDs can be resolved without external fetch; otherwise `null`.
    */
-  tryResolveSync?(ids: string[]): Map<string, TResource | null> | null;
+  resolveFromMemory(ids: string[]): Map<string, TResource | null> | null;
 
   /**
    * Invalidates cached entries.
@@ -37,19 +31,11 @@ export interface Source<TResource = unknown> {
    * Loads currently cached results from persistent cache into app memory.
    * No-op if the source has no cache. Use in useEffect for eager hydration.
    */
-  warmup?(): Promise<void>;
+  warmup(): Promise<void>;
 }
 
-/**
- * Registry of named sources.
- *
- * Keys are source names referenced by `fields` configs.
- */
 export type SourceRegistry = Record<string, Source>;
 
-/**
- * Extracts the resource type produced by a source.
- */
 export type SourceOf<TSource extends Source> = TSource extends Source<infer TValue> ? TValue : never;
 
 type StrRef = Nil<string>;
@@ -65,14 +51,6 @@ type NestedRef<TSources extends SourceRegistry, TSource extends keyof TSources =
 
 type FieldRef<TSources extends SourceRegistry> = DirectRef<TSources> | NestedRef<TSources>;
 
-/**
- * Configuration object that describes where reference IDs live inside `TData`.
- *
- * It mirrors the shape of `TData`:
- * - For a field that contains a reference ID (`string | null | undefined` or array of those),
- *   you specify a source name (direct) or `{ source, fields }` (nested).
- * - For regular objects/arrays-of-objects, you can keep nesting to reach the ref fields.
- */
 export type RefFields<TData, TSources extends SourceRegistry> = TData extends readonly (infer TElement)[]
   ? RefFields<TElement, TSources>
   : {
@@ -90,13 +68,13 @@ type TypeKey<TData, TType> = keyof TData extends infer TKey extends string
 type StrKey<TKey extends string> = `${TKey}T`;
 type ArrKey<TKey extends string> = `${TKey}Ts`;
 
-type StrKeys<TData> = TypeKey<TData, StrRef>;
-type ArrKeys<TData> = TypeKey<TData, ArrRef>;
+type StrKeys<TData, TFields extends object> = TypeKey<TData, StrRef> & keyof TFields;
+type ArrKeys<TData, TFields extends object> = TypeKey<TData, ArrRef> & keyof TFields;
 
 type DataKeys<TData> = keyof TData;
-type RefKeys<TData> = StrKey<StrKeys<TData>> | ArrKey<ArrKeys<TData>>;
+type RefKeys<TData, TFields extends object> = StrKey<StrKeys<TData, TFields>> | ArrKey<ArrKeys<TData, TFields>>;
 
-type RecordKeys<TData> = DataKeys<TData> | RefKeys<TData>;
+type RecordKeys<TData, TFields extends object> = DataKeys<TData> | RefKeys<TData, TFields>;
 
 type ResolveRef<TRef, TSources extends SourceRegistry> =
   TRef extends DirectRef<TSources>
@@ -126,7 +104,7 @@ type ResolveRefKey<TKey, TSources extends SourceRegistry, TFields> =
       : never;
 
 type ResolveRecord<TData, TSources extends SourceRegistry, TFields extends RefFields<TData, TSources>> = {
-  [TKey in RecordKeys<TData>]: TKey extends DataKeys<TData>
+  [TKey in RecordKeys<TData, TFields>]: TKey extends DataKeys<TData>
     ? ResolveDataKey<TData, TKey, TSources, TFields>
     : Nil<ResolveRefKey<TKey, TSources, TFields>>;
 };
@@ -137,13 +115,6 @@ type ResolveArray<
   TFields extends RefFields<TData, TSources>,
 > = Resolve<TData[number], TSources, TFields>[];
 
-/**
- * Resolved output type produced by `inline` / `fn`.
- *
- * Adds `T`/`Ts` properties next to reference ID fields described by `TFields`.
- * - `x: string | null | undefined` → `xT: <resolved> | null | undefined`
- * - `x: Array<string | null | undefined>` → `xTs: Array<<resolved> | null>`
- */
 export type Resolve<TData, TSources extends SourceRegistry, TFields extends RefFields<TData, TSources>> = TData extends
   | null
   | undefined

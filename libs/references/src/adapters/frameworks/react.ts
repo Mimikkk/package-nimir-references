@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { API, ResolveOptions } from 'src/core/API.ts';
-import { Fn, isNil, Nil } from 'src/core/common';
+import { ResolveOptions, VanillaAPI } from 'src/adapters/frameworks/vanilla';
+import { Fn, isNil } from 'src/core/common';
 import { FnAwait, SourcesContext, sourcesContext } from 'src/core/defineReferences.ts';
 import { ReferenceResolver } from 'src/core/referenceResolver.ts';
 import { RefFields, Resolve, Source, SourceRegistry } from 'src/core/types.ts';
@@ -41,12 +41,7 @@ interface UseResolve<
   (...params: Parameters<THook>): UseReferencesResult<TResult>;
 }
 
-const errors = {
-  unmounted: new Error('useReferences unmounted'),
-  cancelled: new Error('Cancelled by new resolve call'),
-};
-
-export class ReactAPI<TSources extends SourceRegistry> extends API<TSources> {
+export class ReactAPI<TSources extends SourceRegistry> extends VanillaAPI<TSources> {
   static from<TSources extends SourceRegistry>(
     stores: ReadonlyMap<string, Source>,
     resolver: ReferenceResolver<TSources>,
@@ -70,7 +65,7 @@ export class ReactAPI<TSources extends SourceRegistry> extends API<TSources> {
   }
 
   use<TData, TFields extends RefFields<TData, TSources>, TResult = Resolve<TData, TSources, TFields>>(
-    data: Nil<TData>,
+    data: TData,
     options: ResolveOptions<TData, TFields, TSources, TResult>,
   ): UseReferencesResult<TResult> {
     const initialSync = useMemo(() => this.resolver.resolveSync(data, options.fields), [data]);

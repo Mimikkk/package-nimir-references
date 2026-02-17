@@ -1,62 +1,29 @@
-import type { AdapterCache } from '../adapters/adapterCache.ts';
+import type { Cache } from './cache.ts';
 
-/**
- * Reason why an ID is negatively cached.
- *
- * This is used to avoid repeatedly fetching IDs that are known to be unavailable.
- */
 export type NegativeReason = 'not-found' | 'unauthorized' | 'missing' | 'internal-server-error';
 
-/**
- * A cached "negative" entry (represents an ID that should resolve to `null` for some time).
- */
 export interface NegativeEntry {
-  /**
-   * Reason for the negative cache entry.
-   */
   reason: NegativeReason;
-
-  /**
-   * Epoch milliseconds when this entry expires.
-   */
   expiry: number;
 }
 
-/**
- * A cached "positive" entry (represents a resolved resource).
- */
 export interface PositiveEntry<TResource> {
   resource: TResource;
-
-  /**
-   * Epoch milliseconds when the resource was stored.
-   */
   updatedAt: number;
 }
 
-/**
- * Cache entry stored by `ReferenceCache`.
- */
 export type ResourceEntry<TResource> = PositiveEntry<TResource> | NegativeEntry;
 
 const NegativePrefix = 'neg:';
 const prefixNegative = (id: string) => `${NegativePrefix}${id}`;
 
 export class ReferenceCache<TResource> {
-  private constructor(private readonly cache: AdapterCache<ResourceEntry<TResource>>) {}
+  private constructor(private readonly cache: Cache<ResourceEntry<TResource>>) {}
 
-  /**
-   * Wraps an adapter implementation into a cache used by stores.
-   */
-  static new<TResource>(cache: AdapterCache<ResourceEntry<TResource>>): ReferenceCache<TResource> {
+  static new<TResource>(cache: Cache<ResourceEntry<TResource>>): ReferenceCache<TResource> {
     return new ReferenceCache(cache);
   }
 
-  /**
-   * Loads the whole cache (adapter `entries()`), partitions into positive/negative and filters by TTL.
-   *
-   * This is primarily used by the `fetchAll` strategy to warm up quickly.
-   */
   async all(ttlMs: number): Promise<{ positive: Map<string, TResource>; negative: Map<string, NegativeEntry> }> {
     const entries = await this.cache.entries();
     const positive = new Map<string, TResource>();
@@ -135,9 +102,6 @@ export class ReferenceCache<TResource> {
     return result;
   }
 
-  /**
-   * Stores resources as positive entries, with a shared `updatedAt` timestamp.
-   */
   async storePositives(items: [id: string, data: TResource][]): Promise<void> {
     if (items.length === 0) return;
     const now = Date.now();
@@ -147,9 +111,6 @@ export class ReferenceCache<TResource> {
     );
   }
 
-  /**
-   * Stores negative entries for IDs (all share the same expiry).
-   */
   async storeNegatives(ids: string[], reason: NegativeReason, ttlMs: number): Promise<void> {
     if (ids.length === 0) return;
 
@@ -158,16 +119,10 @@ export class ReferenceCache<TResource> {
     await this.cache.setMany(ids.map(id => [prefixNegative(id), entry]));
   }
 
-  /**
-   * Removes both positive and negative entries for the given IDs.
-   */
   async removeByIds(ids: string[]): Promise<void> {
     await this.cache.delMany(ids.concat(ids.map(prefixNegative)));
   }
 
-  /**
-   * Clears all cache entries.
-   */
   async clear(): Promise<void> {
     await this.cache.clear();
   }

@@ -3,7 +3,7 @@
  *
  * Implementations are provided as adapters (e.g. in-memory, IndexedDB).
  */
-export interface AdapterCache<TValue> {
+export interface Cache<TValue> {
   /**
    * Returns all entries in the cache.
    *

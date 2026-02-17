@@ -22,7 +22,7 @@ export interface FetchAllOptions<TResource> extends StrategyOptions<TResource> {
 }
 
 export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResource> {
-  private warmup: Promise<void> | null = null;
+  private warmupRef: Promise<void> | null = null;
   private timestampMs = 0;
   private readonly positives = new Map<string, TResource>();
   private readonly negatives = new Map<string, NegativeEntry>();
@@ -42,7 +42,7 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
     await this.ensureWarmUp();
 
     if (this.timestampMs > 0 && Date.now() - this.timestampMs > this.ttlMs) {
-      this.warmup = null;
+      this.warmupRef = null;
       this.ensureWarmUp().catch(noop);
     }
 
@@ -66,7 +66,7 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
 
     this.positives.clear();
     this.negatives.clear();
-    this.warmup = null;
+    this.warmupRef = null;
     this.timestampMs = 0;
     await this.cache?.clear().catch(noop);
   }
@@ -74,7 +74,7 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
   async clearAll(): Promise<void> {
     this.positives.clear();
     this.negatives.clear();
-    this.warmup = null;
+    this.warmupRef = null;
     this.timestampMs = 0;
     await this.cache?.clear();
   }
@@ -84,12 +84,12 @@ export class FetchAllStrategy<TResource> implements ResourceStoreStrategy<TResou
   }
 
   private ensureWarmUp(): Promise<void> {
-    this.warmup ??= this.doWarmUp().catch(error => {
-      this.warmup = null;
+    this.warmupRef ??= this.doWarmUp().catch(error => {
+      this.warmupRef = null;
       throw error;
     });
 
-    return this.warmup;
+    return this.warmupRef;
   }
 
   private async doWarmUp(): Promise<void> {

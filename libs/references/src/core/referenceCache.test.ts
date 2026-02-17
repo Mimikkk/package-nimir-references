@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-
-import { createIdbKeyvalCache } from '../adapters/idb-keyval.ts';
+import { createIdbKeyvalCache } from '../adapters/caches/idb-keyval.ts';
 import { ReferenceCache } from './referenceCache.ts';
 import { ReferenceStore } from './referenceStore.ts';
 

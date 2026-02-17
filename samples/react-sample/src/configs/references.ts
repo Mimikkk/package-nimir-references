@@ -4,7 +4,7 @@ import { defineReferences } from '@nimir/references/react';
 import type { User } from '../services/userService';
 import { userService } from '../services/userService';
 
-const usersCache = ReferenceCache.new(createIdbKeyvalCache<User>({ database: 'nimir-sample', table: 'users' }));
+const usersCache = ReferenceCache.new<User>(createIdbKeyvalCache({ database: 'nimir-sample', table: 'users' }));
 
 export const references = defineReferences(c => ({
   users: c.source({
