@@ -1,41 +1,30 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActionButtons } from './components/ActionButtons';
 import { Navbar } from './components/Navbar';
 import { TicketCards } from './components/TicketCards';
 import { references } from './configs/references';
 import { ticketService } from './services/ticketService';
 
-const WARMUP_KEY = 'nimir-sample-warmup';
+const WarmupKey = 'should-warmup';
+function useWarmupControl() {
+  const [enabled, setEnabled] = useState(() => localStorage.getItem(WarmupKey) === '1');
 
-function useWarmupToggle(): [boolean, (v: boolean) => void] {
-  const [enabled, setEnabled] = useState(() => {
-    try {
-      return localStorage.getItem(WARMUP_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
-
-  const set = (v: boolean) => {
+  const set = useCallback((v: boolean) => {
     setEnabled(v);
-    try {
-      localStorage.setItem(WARMUP_KEY, v ? '1' : '0');
-    } catch {
-      /* ignore */
-    }
-  };
+    localStorage.setItem(WarmupKey, v ? '1' : '0');
+  }, []);
 
-  return [enabled, set];
+  return [enabled, set] as const;
 }
 
 export function App() {
   const [seed, setSeed] = useState(1);
   const [version, setVersion] = useState(0);
-  const [warmupEnabled, setWarmupEnabled] = useWarmupToggle();
+  const [shouldWarmup, setShouldWarmup] = useWarmupControl();
 
   useEffect(() => {
-    if (warmupEnabled) references.warmup();
-  }, [warmupEnabled]);
+    if (shouldWarmup) references.warmup();
+  }, [shouldWarmup]);
 
   const ticket = useMemo(() => ticketService.createTicket(seed), [seed]);
 
@@ -47,20 +36,15 @@ export function App() {
     },
   });
 
+  const handleShuffle = useCallback(() => setSeed(x => x + 1), []);
+  const handleReResolve = useCallback(() => invalidate(), [invalidate]);
+  const handleRemount = useCallback(() => setVersion(v => v + 1), []);
+
   return (
     <div className="min-h-screen">
-      <Navbar
-        status={status}
-        fetchStatus={fetchStatus}
-        warmupEnabled={warmupEnabled}
-        onWarmupToggle={setWarmupEnabled}
-      />
+      <Navbar status={status} fetchStatus={fetchStatus} warmupEnabled={shouldWarmup} onWarmupToggle={setShouldWarmup} />
       <main className="mx-auto w-full max-w-5xl px-4 py-6" key={version}>
-        <ActionButtons
-          onShuffle={() => setSeed(x => x + 1)}
-          onReResolve={invalidate}
-          onRemount={() => setVersion(v => v + 1)}
-        />
+        <ActionButtons onShuffle={handleShuffle} onReResolve={handleReResolve} onRemount={handleRemount} />
         {error ? (
           <div className="alert alert-error mb-4">
             <span className="font-semibold">Error</span>

@@ -12,7 +12,7 @@ export const users = new Map<string, User>([
 ]);
 
 export async function fetchByIds(ids: string[]): Promise<User[]> {
-  await sleep(Math.random() * 250);
+  await sleep(1000);
 
   return ids.map(id => users.get(id)!).filter(Boolean);
 }

@@ -85,39 +85,30 @@ export class ReactAPI<TSources extends SourceRegistry> extends API<TSources> {
     const [status, setStatus] = useState<ResultStatus>(initialSync.status === 'ok' ? 'success' : 'pending');
     const [fetchStatus, setFetchStatus] = useState<FetchStatus>('idle');
     const [error, setError] = useState<unknown | undefined>(undefined);
-    const inflightRef = useRef<PromiseWithResolvers<void> | null>(null);
     const initialRef = useRef(true);
+    const versionRef = useRef<number>(0);
 
     const resolve = useEffectEvent(async () => {
-      if (inflightRef.current) {
-        inflightRef.current.reject(errors.cancelled);
-        inflightRef.current = null;
-      }
-
-      const resolvers = Promise.withResolvers<void>();
-      inflightRef.current = resolvers;
+      const version = ++versionRef.current;
 
       try {
         setFetchStatus('fetching');
         const result = (await this.inline(data, options))!;
 
-        if (inflightRef.current === resolvers) {
+        if (versionRef.current === version) {
           setResult(result);
           setError(undefined);
           setStatus('success');
-          resolvers.resolve();
         }
       } catch (error) {
-        if (inflightRef.current === resolvers) {
+        if (versionRef.current === version) {
           setResult(undefined);
           setError(error);
           setStatus('error');
-          resolvers.reject(error);
         }
       } finally {
-        if (inflightRef.current === resolvers) {
+        if (versionRef.current === version) {
           setFetchStatus('idle');
-          inflightRef.current = null;
         }
       }
     });
@@ -140,12 +131,6 @@ export class ReactAPI<TSources extends SourceRegistry> extends API<TSources> {
 
       if (isNil(data)) return;
       resolve();
-
-      return () => {
-        if (!inflightRef.current) return;
-        inflightRef.current.reject(errors.unmounted);
-        inflightRef.current = null;
-      };
     }, [data]);
 
     return {
