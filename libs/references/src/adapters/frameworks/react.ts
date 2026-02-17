@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { ResolveOptions, VanillaAPI } from 'src/adapters/frameworks/vanilla';
-import { Fn, isNil } from 'src/core/common';
-import { FnAwait, SourcesContext, sourcesContext } from 'src/core/defineReferences.ts';
-import { ReferenceResolver } from 'src/core/referenceResolver.ts';
-import { RefFields, Resolve, Source, SourceRegistry } from 'src/core/types.ts';
+import { Fn, isNil } from '../../core/common.ts';
+import { createReferenceContext, FnAwait, SourcesContext } from '../../core/defineReferences.ts';
+import { ReferenceResolver } from '../../core/referenceResolver.ts';
+import { RefFields, Resolve, Source, SourceRegistry } from '../../core/types.ts';
+import { ResolveOptions, Refs as VanillaRefs } from './vanilla.ts';
 
 /**
  * The status of the data resolution.
@@ -41,7 +41,15 @@ interface UseResolve<
   (...params: Parameters<THook>): UseReferencesResult<TResult>;
 }
 
-export class ReactAPI<TSources extends SourceRegistry> extends VanillaAPI<TSources> {
+function toResult<TData, TSources extends SourceRegistry, TFields extends RefFields<TData, TSources>, TResult>(
+  value: Resolve<TData, TSources, TFields> | Extract<TData, undefined | null>,
+  transform: ResolveOptions<TData, TFields, TSources, TResult>['transform'],
+): TResult | undefined {
+  if (isNil(value)) return undefined;
+  return transform?.(value as Resolve<TData, TSources, TFields>) ?? (value as TResult);
+}
+
+export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources> {
   static from<TSources extends SourceRegistry>(
     stores: ReadonlyMap<string, Source>,
     resolver: ReferenceResolver<TSources>,
@@ -68,20 +76,16 @@ export class ReactAPI<TSources extends SourceRegistry> extends VanillaAPI<TSourc
     data: TData,
     options: ResolveOptions<TData, TFields, TSources, TResult>,
   ): UseReferencesResult<TResult> {
-    const initialSync = useMemo(() => this.resolver.resolveSync(data, options.fields), [data]);
+    const sync = useMemo(() => this.resolver.resolveFromMemory(data, options.fields), [data]);
 
-    const [result, setResult] = useState<TResult | undefined>(
-      initialSync.status === 'ok'
-        ? isNil(initialSync.result)
-          ? undefined
-          : (options.transform?.(initialSync.result!) ?? (initialSync.result as TResult))
-        : undefined,
+    const [result, setResult] = useState<TResult | undefined>(() =>
+      sync.status === 'ok' ? toResult(sync.result, options.transform) : undefined,
     );
-    const [status, setStatus] = useState<ResultStatus>(initialSync.status === 'ok' ? 'success' : 'pending');
+    const [status, setStatus] = useState<ResultStatus>(sync.status === 'ok' ? 'success' : 'pending');
     const [fetchStatus, setFetchStatus] = useState<FetchStatus>('idle');
     const [error, setError] = useState<unknown | undefined>(undefined);
-    const initialRef = useRef(true);
-    const versionRef = useRef<number>(0);
+    const isFirstRenderRef = useRef(false);
+    const versionRef = useRef(0);
 
     const resolve = useEffectEvent(async () => {
       const version = ++versionRef.current;
@@ -111,15 +115,15 @@ export class ReactAPI<TSources extends SourceRegistry> extends VanillaAPI<TSourc
     const invalidate = useCallback(() => resolve(), []);
 
     useEffect(() => {
-      if (initialRef.current && initialSync.status === 'ok') {
-        initialRef.current = false;
+      if (isFirstRenderRef.current === false && sync.status === 'ok') {
+        setResult(toResult(sync.result, options.transform));
+        isFirstRenderRef.current = true;
         return;
       }
+      isFirstRenderRef.current = true;
 
-      initialRef.current = false;
-      const sync = this.resolver.resolveSync(data, options.fields);
       if (sync.status === 'ok') {
-        setResult(isNil(sync.result) ? undefined : (options.transform?.(sync.result!) ?? (sync.result as TResult)));
+        setResult(toResult(sync.result, options.transform));
         setStatus('success');
         return;
       }
@@ -140,9 +144,7 @@ export class ReactAPI<TSources extends SourceRegistry> extends VanillaAPI<TSourc
 
 export function defineReferences<TSources extends SourceRegistry>(
   sources: (context: SourcesContext) => TSources,
-): ReactAPI<TSources> {
-  const stores = new Map(Object.entries(sources(sourcesContext)) as [Extract<keyof TSources, string>, Source][]);
-  const resolver = ReferenceResolver.from(stores);
-
-  return ReactAPI.from(stores, resolver);
+): Refs<TSources> {
+  const { stores, resolver } = createReferenceContext(sources);
+  return Refs.from(stores, resolver);
 }

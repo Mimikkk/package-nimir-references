@@ -1,4 +1,5 @@
 import type { Awaitable } from './common.ts';
+import { readHttpStatus, statusToNegativeReason } from './httpErrors.ts';
 import type { NegativeEntry, NegativeReason, ReferenceCache } from './referenceCache.ts';
 
 export const noop = () => {};
@@ -241,13 +242,9 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
     const result = new Map<string, TResource | null>();
 
     try {
-      let remaining = ids;
-      if (this.cache) {
-        remaining = await this.drainFromCache(remaining, result, deferreds);
-      }
-      if (remaining.length > 0) {
-        await this.fetchFromNetwork(remaining, result, deferreds);
-      }
+      const { hits, misses } = await this.resolveFromCache(ids);
+      this.mergeAndStore(hits, result, deferreds);
+      await this.fetchMissed(misses, result, deferreds);
     } catch (error) {
       this.handleFetchError(error, ids, result, deferreds);
     } finally {
@@ -259,49 +256,63 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
     return result;
   }
 
-  private async drainFromCache(
-    ids: string[],
-    result: Map<string, TResource | null>,
-    deferreds: Map<string, (value: TResource | null) => void>,
-  ): Promise<string[]> {
-    const positives = await this.cache!.positives(ids, this.ttlMs);
-    const afterPositive: string[] = [];
+  private async resolveFromCache(ids: string[]): Promise<{ hits: Map<string, TResource | null>; misses: string[] }> {
+    if (!this.cache || ids.length === 0) {
+      return { hits: new Map(), misses: ids };
+    }
+
+    const hits = new Map<string, TResource | null>();
+    const positives = await this.cache.positives(ids, this.ttlMs);
+    const unresolved: string[] = [];
 
     for (const id of ids) {
       const item = positives.get(id);
       if (item !== undefined) {
         this.positives.set(id, item);
-        result.set(id, item);
-        deferreds.get(id)?.(item);
-      } else {
-        afterPositive.push(id);
+        hits.set(id, item);
+        continue;
       }
+      unresolved.push(id);
     }
 
-    if (afterPositive.length === 0) return [];
+    if (unresolved.length === 0) {
+      return { hits, misses: [] };
+    }
 
-    const negatives = await this.cache!.negatives(afterPositive);
-    const remaining: string[] = [];
+    const negatives = await this.cache.negatives(unresolved);
+    const misses: string[] = [];
 
-    for (const id of afterPositive) {
+    for (const id of unresolved) {
       const entry = negatives.get(id);
-      if (entry) {
-        this.negatives.set(id, entry);
-        result.set(id, null);
-        deferreds.get(id)?.(null);
-      } else {
-        remaining.push(id);
+      if (!entry) {
+        misses.push(id);
+        continue;
       }
+      this.negatives.set(id, entry);
+      hits.set(id, null);
     }
 
-    return remaining;
+    return { hits, misses };
   }
 
-  private async fetchFromNetwork(
+  private mergeAndStore(
+    values: Map<string, TResource | null>,
+    result: Map<string, TResource | null>,
+    deferreds: Map<string, (value: TResource | null) => void>,
+  ): void {
+    for (const [id, value] of values) {
+      result.set(id, value);
+      deferreds.get(id)?.(value);
+    }
+  }
+
+  private async fetchMissed(
     ids: string[],
     result: Map<string, TResource | null>,
     deferreds: Map<string, (value: TResource | null) => void>,
   ): Promise<void> {
+    if (ids.length === 0) return;
+
     const items = await this.batchFetch(ids);
     const fetchedIds = new Set<string>();
     const entries: [string, TResource][] = [];
@@ -374,24 +385,4 @@ export class FetchByIdsStrategy<TResource> implements ResourceStoreStrategy<TRes
     const results = await Promise.all(chunks.map(chunk => this.fetchByIds(chunk)));
     return results.flat();
   }
-}
-
-function readHttpStatus(error: unknown): number | undefined {
-  if (!error || typeof error !== 'object') return undefined;
-
-  const direct = (error as Record<string, unknown>).status;
-  if (typeof direct === 'number') return direct;
-
-  const response = (error as Record<string, unknown>).response;
-  if (typeof response !== 'object' || response === null) return undefined;
-
-  const nested = (response as Record<string, unknown>).status;
-  return typeof nested === 'number' ? nested : undefined;
-}
-
-function statusToNegativeReason(status: number): NegativeReason {
-  if (status === 401 || status === 403) return 'unauthorized';
-  if (status === 404) return 'not-found';
-  if (status >= 500) return 'internal-server-error';
-  return 'missing';
 }

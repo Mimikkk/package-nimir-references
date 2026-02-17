@@ -1,5 +1,5 @@
 import { isNil, type Fn } from '../../core/common.ts';
-import { FnAwait } from '../../core/defineReferences.ts';
+import { createReferenceContext, FnAwait, SourcesContext } from '../../core/defineReferences.ts';
 import { ReferenceResolver } from '../../core/referenceResolver.ts';
 import type { RefFields, Resolve, Source, SourceRegistry } from '../../core/types.ts';
 
@@ -13,7 +13,7 @@ export interface ResolveOptions<
   transform?: (result: Resolve<TData, TSources, TFields>) => TResult;
 }
 
-export class VanillaAPI<TSources extends SourceRegistry> {
+export class Refs<TSources extends SourceRegistry> {
   protected constructor(
     protected readonly stores: ReadonlyMap<string, Source>,
     protected readonly resolver: ReferenceResolver<TSources>,
@@ -22,7 +22,7 @@ export class VanillaAPI<TSources extends SourceRegistry> {
   static from<TSources extends SourceRegistry>(
     stores: ReadonlyMap<string, Source>,
     resolver: ReferenceResolver<TSources>,
-  ): VanillaAPI<TSources> {
+  ): Refs<TSources> {
     return new this(stores, resolver);
   }
 
@@ -62,3 +62,14 @@ export class VanillaAPI<TSources extends SourceRegistry> {
     await Promise.all(Array.from(this.stores.values()).map(s => s.invalidate()));
   }
 }
+
+export function defineReferences<TSources extends SourceRegistry>(
+  sources: (context: SourcesContext) => TSources,
+): Refs<TSources> {
+  const { stores, resolver } = createReferenceContext(sources);
+
+  return Refs.from<TSources>(stores, resolver);
+}
+
+export type SourcesOf<TAPI extends Refs<any>> =
+  TAPI extends Refs<infer TSources extends SourceRegistry> ? TSources : never;

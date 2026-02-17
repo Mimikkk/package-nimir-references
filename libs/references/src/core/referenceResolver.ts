@@ -10,6 +10,7 @@ type NestedRef = { source: string; fields: Fields };
 type Field = DirectRef | NestedRef | Fields;
 type Fields = { [key: string]: Field };
 type Target = Record<string, unknown>;
+type QueueItem = { target: Target; fields: Fields };
 
 interface Ref {
   target: Target;
@@ -56,7 +57,7 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
     return out.result as Resolve<TData, TSources, TFields>;
   }
 
-  resolveSync<TData, TFields extends RefFields<TData, TSources>>(
+  resolveFromMemory<TData, TFields extends RefFields<TData, TSources>>(
     item: TData,
     fields: TFields,
   ): ResolveSyncResult<Resolve<TData, TSources, TFields>> {
@@ -101,23 +102,13 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
     fields: Fields,
     fetchBatch: (m: Map<string, Set<string>>) => Promise<Map<string, Map<string, unknown>>>,
   ): Promise<{ result: Target | Target[] }> {
-    const result = structuredClone(item) as Target | Target[];
-    const runtimeFields = fields;
-    const queue: { target: Target; fields: Fields }[] = Array.isArray(result)
-      ? result.map(target => ({ target, fields: runtimeFields }))
-      : [{ target: result, fields: runtimeFields }];
+    const { result, queue } = this.createRuntime(item, fields);
 
     let depth = 0;
     while (queue.length > 0) {
       if (++depth > maxDepth) break;
 
-      const level = queue.splice(0, queue.length);
-      const sourceIdsMap = new Map<string, Set<string>>();
-      const references: Ref[] = [];
-
-      for (const entry of level) {
-        this.collect(entry.target, entry.fields, sourceIdsMap, references);
-      }
+      const { references, sourceIdsMap } = this.collectLevel(queue);
 
       if (references.length === 0) break;
 
@@ -129,23 +120,13 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
   }
 
   private runLoopSync(item: unknown, fields: Fields): { result: Target | Target[]; needsResolve: boolean } {
-    const result = structuredClone(item) as Target | Target[];
-    const runtimeFields = fields;
-    const queue: { target: Target; fields: Fields }[] = Array.isArray(result)
-      ? result.map(target => ({ target, fields: runtimeFields }))
-      : [{ target: result, fields: runtimeFields }];
+    const { result, queue } = this.createRuntime(item, fields);
 
     let depth = 0;
     while (queue.length > 0) {
       if (++depth > maxDepth) break;
 
-      const level = queue.splice(0, queue.length);
-      const sourceIdsMap = new Map<string, Set<string>>();
-      const references: Ref[] = [];
-
-      for (const entry of level) {
-        this.collect(entry.target, entry.fields, sourceIdsMap, references);
-      }
+      const { references, sourceIdsMap } = this.collectLevel(queue);
 
       if (references.length === 0) break;
 
@@ -155,6 +136,26 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
     }
 
     return { result, needsResolve: false };
+  }
+
+  private createRuntime(item: unknown, fields: Fields): { result: Target | Target[]; queue: QueueItem[] } {
+    const result = structuredClone(item) as Target | Target[];
+    const queue: QueueItem[] = Array.isArray(result)
+      ? result.map(target => ({ target, fields }))
+      : [{ target: result, fields }];
+    return { result, queue };
+  }
+
+  private collectLevel(queue: QueueItem[]): { references: Ref[]; sourceIdsMap: Map<string, Set<string>> } {
+    const level = queue.splice(0, queue.length);
+    const sourceIdsMap = new Map<string, Set<string>>();
+    const references: Ref[] = [];
+
+    for (const entry of level) {
+      this.collect(entry.target, entry.fields, sourceIdsMap, references);
+    }
+
+    return { references, sourceIdsMap };
   }
 
   private applyResolved(

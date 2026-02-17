@@ -12,8 +12,10 @@
  * - For a ref field `x: string | null | undefined` the resolver adds `xT`.
  * - For a ref field `x: Array<string | null | undefined>` the resolver adds `xTs`.
  */
+export { defineReferences, type SourcesOf } from '../adapters/frameworks/vanilla.ts';
+
 export type { Cache } from '../core/cache.ts';
-export { defineReferences, type ResolveOf, type SourcesOf } from '../core/defineReferences.ts';
+export type { ResolveOf } from '../core/defineReferences.ts';
 export {
   ReferenceCache,
   type NegativeEntry,

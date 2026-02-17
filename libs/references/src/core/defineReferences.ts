@@ -1,4 +1,3 @@
-import { VanillaAPI } from '../adapters/frameworks/vanilla.ts';
 import type { Fn } from './common.ts';
 import { ReferenceResolver } from './referenceResolver.ts';
 import { ReferenceStore, type ResourceStoreOptions } from './referenceStore.ts';
@@ -43,13 +42,16 @@ export const sourcesContext: SourcesContext = {
   },
 };
 
-export function defineReferences<TSources extends SourceRegistry>(
+export interface ReferenceContext<TSources extends SourceRegistry> {
+  stores: ReadonlyMap<Extract<keyof TSources, string>, Source>;
+  resolver: ReferenceResolver<TSources>;
+}
+
+export function createReferenceContext<TSources extends SourceRegistry>(
   sources: (context: SourcesContext) => TSources,
-): VanillaAPI<TSources> {
+): ReferenceContext<TSources> {
   const stores = new Map(Object.entries(sources(sourcesContext)) as [Extract<keyof TSources, string>, Source][]);
   const resolver = ReferenceResolver.from(stores);
 
-  return VanillaAPI.from<TSources>(stores, resolver);
+  return { stores, resolver };
 }
-export type SourcesOf<TAPI extends VanillaAPI<any>> =
-  TAPI extends VanillaAPI<infer TSources extends SourceRegistry> ? TSources : never;

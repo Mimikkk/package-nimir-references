@@ -216,32 +216,32 @@ describe('References - Resolver', () => {
     it('returns needs-resolve when source not warmed', () => {
       const resolver = createResolver({ A: [a1] });
       const item = { aId: 'f1' };
-      const out = resolver.resolveSync(item, { aId: 'A' });
+      const out = resolver.resolveFromMemory(item, { aId: 'A' });
       expect(out.status).toBe('needs-resolve');
     });
 
     it('returns ok with result when all refs in cache', async () => {
       const resolver = createResolver({ A: [a1, a2] });
       await resolver.resolve({ aId: 'f1' }, { aId: 'A' });
-      const out = resolver.resolveSync({ aId: 'f1' }, { aId: 'A' });
+      const out = resolver.resolveFromMemory({ aId: 'f1' }, { aId: 'A' });
       expect(out).toEqual({ status: 'ok', result: { aId: 'f1', aIdT: a1 } });
     });
 
     it('returns ok with null for missing id when fetchAll warmed (full collection known)', async () => {
       const resolver = createResolver({ A: [a1] });
       await resolver.resolve({ aId: 'f1' }, { aId: 'A' });
-      const out = resolver.resolveSync({ aId: 'nonexistent' }, { aId: 'A' });
+      const out = resolver.resolveFromMemory({ aId: 'nonexistent' }, { aId: 'A' });
       expect(out).toEqual({ status: 'ok', result: { aId: 'nonexistent', aIdT: null } });
     });
 
     it('returns ok for null/undefined item', () => {
       const resolver = createResolver({ A: [a1] });
-      expect(resolver.resolveSync(null as { aId: Nil<string> } | null, { aId: 'A' })).toEqual({
+      expect(resolver.resolveFromMemory(null as { aId: Nil<string> } | null, { aId: 'A' })).toEqual({
         status: 'ok',
         result: null,
       });
 
-      expect(resolver.resolveSync(undefined as { aId: Nil<string> } | undefined, { aId: 'A' })).toEqual({
+      expect(resolver.resolveFromMemory(undefined as { aId: Nil<string> } | undefined, { aId: 'A' })).toEqual({
         status: 'ok',
         result: undefined,
       });
@@ -249,7 +249,7 @@ describe('References - Resolver', () => {
 
     it('returns needs-resolve for unknown source', () => {
       const resolver = createResolver({});
-      const out = resolver.resolveSync({ fId: 'f1' }, { fId: 'NonExistent' });
+      const out = resolver.resolveFromMemory({ fId: 'f1' }, { fId: 'NonExistent' });
       expect(out.status).toBe('needs-resolve');
     });
   });

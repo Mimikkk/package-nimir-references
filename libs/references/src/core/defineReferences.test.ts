@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { defineReferences } from './defineReferences.ts';
+import { defineReferences } from '../adapters/frameworks/vanilla.ts';
 
 type Entity = { id: string };
 

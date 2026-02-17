@@ -34,6 +34,17 @@ export interface Source<TResource = unknown> {
   warmup(): Promise<void>;
 }
 
+/**
+ * Named source registry used by the resolver schema.
+ *
+ * Example:
+ * ```ts
+ * const sources = {
+ *   users: source<User>(...),
+ *   teams: source<Team>(...),
+ * } satisfies SourceRegistry;
+ * ```
+ */
 export type SourceRegistry = Record<string, Source>;
 
 export type SourceOf<TSource extends Source> = TSource extends Source<infer TValue> ? TValue : never;
@@ -51,6 +62,25 @@ type NestedRef<TSources extends SourceRegistry, TSource extends keyof TSources =
 
 type FieldRef<TSources extends SourceRegistry> = DirectRef<TSources> | NestedRef<TSources>;
 
+/**
+ * Resolution schema describing which fields contain references.
+ *
+ * For each field:
+ * - `'users'` means the field contains a user ID or array of IDs.
+ * - `{ source: 'users', fields: {...} }` resolves nested references on the resolved user object.
+ *
+ * Example:
+ * ```ts
+ * const fields = {
+ *   assigneeId: 'users',
+ *   watcherIds: 'users',
+ *   organizationId: {
+ *     source: 'orgs',
+ *     fields: { ownerUserId: 'users' },
+ *   },
+ * } satisfies RefFields<Ticket, TSources>;
+ * ```
+ */
 export type RefFields<TData, TSources extends SourceRegistry> = TData extends readonly (infer TElement)[]
   ? RefFields<TElement, TSources>
   : {
@@ -115,6 +145,13 @@ type ResolveArray<
   TFields extends RefFields<TData, TSources>,
 > = Resolve<TData[number], TSources, TFields>[];
 
+/**
+ * Resolved output shape for a payload and resolution schema.
+ *
+ * Naming convention:
+ * - `field: string | null | undefined` adds `fieldT`
+ * - `field: Array<string | null | undefined>` adds `fieldTs`
+ */
 export type Resolve<TData, TSources extends SourceRegistry, TFields extends RefFields<TData, TSources>> = TData extends
   | null
   | undefined
