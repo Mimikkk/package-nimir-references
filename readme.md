@@ -197,6 +197,8 @@ const cache = ReferenceCache.new<User>(createRedisCache({ client: new Redis(), p
 
 ### React API
 
+Extends base node with React specific functions:
+
 - `refs.hook(useQuery, { fields, transform? })` — wrap a data hook; returns `{ result, status, fetchStatus, error, invalidate }`.
 - `refs.use(data, { fields, transform? })` — resolve inline data reactively.
 
