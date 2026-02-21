@@ -97,14 +97,10 @@
   },
   "peerDependencies": {
     "idb-keyval": "^6.2.2",
-    "react": "^19.2.4",
-    "redis": "^5.11.0"
+    "react": "^19.2.4"
   },
   "peerDependenciesMeta": {
     "react": {
-      "optional": true
-    },
-    "redis": {
       "optional": true
     },
     "idb-keyval": {
