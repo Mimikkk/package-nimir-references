@@ -665,7 +665,7 @@ async function compileOnlyExercise() {
   refs.invalidate('Role');
   await refs.clear();
 
-  const unsafeFields = { userId: 'NonExistentSource' as any } as any;
+  const unsafeFields = { userId: 'NonExistentSource' as never };
   const resolvedUnsafe = await refs.inline(page, { fields: unsafeFields });
 
   return { resolved, resolved2, justIds, resolvedUnsafe };

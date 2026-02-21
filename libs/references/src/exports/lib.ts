@@ -6,7 +6,7 @@
  * The public API is:
  * - `defineReferences(...)` to register named sources
  * - `references.inline(...)` / `references.fn(...)` to resolve payloads
- * - `ResourceStore` + `ResourceCache` to control fetching and caching
+ * - `ReferenceSource` + `ReferenceCache` to control fetching and caching
  *
  * Resolution convention:
  * - For a ref field `x: string | null | undefined` the resolver adds `xT`.

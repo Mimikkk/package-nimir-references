@@ -39,6 +39,7 @@ export class CompleteSourceStrategy<TResource> implements SourceStrategy<TResour
     await this.restore();
 
     if (this.timestampMs > 0 && Date.now() - this.timestampMs > this.ttlMs) {
+      this.timestampMs = 0;
       this.fetchRef = null;
       await this.restore();
     }

@@ -9,6 +9,19 @@ import {
 } from 'idb-keyval';
 import type { Cache } from '../../core/cache.ts';
 
+/**
+ * Options for the IndexedDB cache.
+ *
+ * @param database - The name of the database to use.
+ * @param table - The name of the table to use.
+ */
+export interface IdbKeyvalCacheOptions {
+  /** The name of the database to use. */
+  database: string;
+  /** The name of the table to use. */
+  table: string;
+}
+
 class IdbKeyvalCache<TValue> implements Cache<TValue> {
   private constructor(private readonly store: UseStore) {}
 
@@ -34,11 +47,6 @@ class IdbKeyvalCache<TValue> implements Cache<TValue> {
   async clear(): Promise<void> {
     return await idbClear(this.store);
   }
-}
-
-export interface IdbKeyvalCacheOptions {
-  database: string;
-  table: string;
 }
 
 export const createIdbKeyvalCache = IdbKeyvalCache.from;

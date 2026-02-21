@@ -1,5 +1,10 @@
 import type { Cache } from '../../core/cache.ts';
 
+/**
+ * Options for the in-memory cache.
+ *
+ * currently no options are supported, but this interface is kept for future extensibility.
+ */
 export interface MemoryCacheOptions {}
 
 class MemoryCache<TValue> implements Cache<TValue> {

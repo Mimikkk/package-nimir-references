@@ -133,7 +133,7 @@ describe('References - ReferenceResolver', () => {
     const b1 = { id: 'b1', aId: 'f1' };
     const b2 = { id: 'b2', aId: 'f2' };
     const resolver = createResolver({
-      Branch: [b1 as any, b2 as any],
+      Branch: [b1, b2],
       A: [a1, a2],
     });
 
@@ -161,7 +161,7 @@ describe('References - ReferenceResolver', () => {
     const item = { a: { b: [{ c: { fId: 'f1' } }] } };
     const result = await resolver.resolve(item, { a: { b: { c: { fId: 'A' } } } });
 
-    expect((result as any).a.b[0].c.fIdT).toEqual(a1);
+    expect(result.a.b[0].c.fIdT).toEqual(a1);
   });
 
   it('handles empty arrays gracefully', async () => {

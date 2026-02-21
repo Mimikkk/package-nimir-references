@@ -19,6 +19,10 @@ type ResultStatus = 'pending' | 'error' | 'success';
  */
 type FetchStatus = 'fetching' | 'idle';
 
+/**
+ * The result of a useReferences hook.
+ * @param TResult - The type of the result.
+ */
 interface UseReferencesResult<TResult> {
   /** The error that occurred while fetching the data. */
   error: unknown | undefined;
@@ -32,6 +36,13 @@ interface UseReferencesResult<TResult> {
   invalidate: () => Promise<void>;
 }
 
+/**
+ * The hook function for useReferences.
+ * @param THook - The hook function to use.
+ * @param TSources - The sources to use.
+ * @param TFields - The fields to use.
+ * @param TResult - The type of the result.
+ */
 interface UseReferences<
   THook extends Fn,
   TSources extends SourceRegistry,
@@ -41,7 +52,17 @@ interface UseReferences<
   (...params: Parameters<THook>): UseReferencesResult<TResult>;
 }
 
+/**
+ * References resolver for React.
+ *
+ * @param TSources - The sources to use.
+ */
 export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources> {
+  /**
+   * Creates a new Refs instance from a context.
+   * @param context - The context to use.
+   * @returns The new Refs instance.
+   */
   static fromContext<TSources extends SourceRegistry>({
     stores,
     resolver,
