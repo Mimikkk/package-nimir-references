@@ -13,7 +13,7 @@ const a2 = entity('a2');
 const createCache = (database: string, store = 'references') =>
   ReferenceCache.new<Entity>(createIdbKeyvalCache({ database, table: store }));
 
-describe('References - Cache', () => {
+describe('References - ReferenceCache', () => {
   it('persists to IDB and serves from it after invalidate + re-create', async () => {
     const fetchFn = vi.fn(async (ids: string[]) => ids.map(entity));
     const storeName = `idb-test-${Date.now()}`;

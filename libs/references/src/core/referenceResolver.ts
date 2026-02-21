@@ -3,7 +3,7 @@ import type { RefFields, Resolve, Source, SourceRegistry } from './types.ts';
 
 const maxDepth = 10;
 
-export type MemoryResolveResult<TData> = { status: 'ok'; result: TData } | { status: 'needs-resolve' };
+export type MemoryResolveResult<TData> = { status: 'ok'; result: TData } | { status: 'missing-values' };
 
 type DirectRef = string;
 type NestedRef = { source: string; fields: Fields };
@@ -25,7 +25,7 @@ const isNestedRef = (value: Field): value is NestedRef =>
   typeof value === 'object' && value !== null && 'source' in value && 'fields' in value;
 const isFields = (value: Field): value is Fields => typeof value === 'object' && value !== null && !isNestedRef(value);
 
-function addSourceIds(map: Map<string, Set<string>>, source: string, values: unknown[]): void {
+function addSourceIds(map: Map<string, Set<string>>, source: string, item: unknown | unknown[]): void {
   let set = map.get(source);
 
   if (!set) {
@@ -33,8 +33,12 @@ function addSourceIds(map: Map<string, Set<string>>, source: string, values: unk
     map.set(source, set);
   }
 
-  for (const value of values) {
-    if (typeof value === 'string') set.add(value);
+  if (Array.isArray(item)) {
+    for (const value of item) {
+      if (typeof value === 'string') set.add(value);
+    }
+  } else if (typeof item === 'string') {
+    set.add(item);
   }
 }
 
@@ -68,8 +72,8 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
     }
     const result = this.runSync(item, fields as Fields);
 
-    return result.needsResolve
-      ? { status: 'needs-resolve' }
+    return result.isMissingValues
+      ? { status: 'missing-values' }
       : { status: 'ok', result: result.result as Resolve<TData, TSources, TFields> };
   }
 
@@ -122,7 +126,7 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
     return { result };
   }
 
-  private runSync(item: unknown, fields: Fields): { result: Target | Target[]; needsResolve: boolean } {
+  private runSync(item: unknown, fields: Fields): { result: Target | Target[]; isMissingValues: boolean } {
     const { result, queue } = this.prepare(item, fields);
 
     for (let depth = 0; queue.length > 0; depth++) {
@@ -131,11 +135,11 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
       if (references.length === 0) break;
 
       const resolvedMaps = this.resolveLevelSync(sourceIdsMap);
-      if (resolvedMaps === null) return { result, needsResolve: true };
+      if (resolvedMaps === null) return { result, isMissingValues: true };
       this.applyResolved(references, resolvedMaps, queue);
     }
 
-    return { result, needsResolve: false };
+    return { result, isMissingValues: false };
   }
 
   private prepare(item: unknown, fields: Fields): { result: Target | Target[]; queue: QueueItem[] } {
@@ -198,18 +202,16 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
       if (isNil(value)) continue;
 
       if (isDirectRef(field)) {
-        const values = Array.isArray(value) ? value : [value];
-        addSourceIds(sourceIdsMap, field, values);
         const isArray = Array.isArray(value);
+        addSourceIds(sourceIdsMap, field, value);
 
         references.push({ target, property, source: field, isArray });
         continue;
       }
 
       if (isNestedRef(field)) {
-        const values = Array.isArray(value) ? value : [value];
-        addSourceIds(sourceIdsMap, field.source, values);
         const isArray = Array.isArray(value);
+        addSourceIds(sourceIdsMap, field.source, value);
 
         references.push({ target, property, source: field.source, isArray, fields: field.fields });
         continue;

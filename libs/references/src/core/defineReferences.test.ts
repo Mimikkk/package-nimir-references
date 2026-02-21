@@ -11,7 +11,7 @@ const a2 = entity('a2');
 const b1 = entity('b1');
 const b2 = entity('b2');
 
-describe('References - Builder', () => {
+describe('References - defineReferences', () => {
   const as = [a1, a2];
   const bs = [b1, b2];
 

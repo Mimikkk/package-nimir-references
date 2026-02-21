@@ -9,7 +9,7 @@ const entity = (id: string): Entity => ({ id });
 const a1 = entity('a1');
 const a2 = entity('a2');
 
-describe('References - SourceStore', () => {
+describe('References - ReferenceSource', () => {
   describe('fetchAll mode', () => {
     it('resolves IDs after warm-up', async () => {
       const store = ReferenceSource.from<Entity>({ list: async () => [a1, a2] });
@@ -230,7 +230,7 @@ describe('References - SourceStore', () => {
       expect(fetchAll).toHaveBeenCalledTimes(2);
     });
 
-    it('clearAll resets everything', async () => {
+    it('invalidate without ids resets everything', async () => {
       const fetchAll = vi.fn(async () => [a1]);
       const store = ReferenceSource.from<Entity>({ list: fetchAll });
 

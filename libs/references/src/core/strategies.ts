@@ -25,7 +25,6 @@ export class CompleteSourceStrategy<TResource> implements SourceStrategy<TResour
 
   private constructor(
     private readonly positives: Map<string, TResource>,
-    private readonly negatives: Map<string, NegativeEntry>,
     private readonly cache: ReferenceCache<TResource> | null,
     private readonly keyBy: (item: TResource) => string,
     private readonly ttlMs: number,
@@ -33,7 +32,7 @@ export class CompleteSourceStrategy<TResource> implements SourceStrategy<TResour
   ) {}
 
   static new<TResource>(options: CompleteSourceStrategyOptions<TResource>): CompleteSourceStrategy<TResource> {
-    return new CompleteSourceStrategy(new Map(), new Map(), options.cache, options.keyBy, options.ttlMs, options.list);
+    return new CompleteSourceStrategy(new Map(), options.cache, options.keyBy, options.ttlMs, options.list);
   }
 
   async resolve(ids: string[]): Promise<Map<string, TResource | null>> {
@@ -41,7 +40,7 @@ export class CompleteSourceStrategy<TResource> implements SourceStrategy<TResour
 
     if (this.timestampMs > 0 && Date.now() - this.timestampMs > this.ttlMs) {
       this.fetchRef = null;
-      this.restore();
+      await this.restore();
     }
 
     return new Map(ids.map(id => [id, this.positives.get(id) ?? null]));
@@ -56,7 +55,6 @@ export class CompleteSourceStrategy<TResource> implements SourceStrategy<TResour
     if (ids) {
       for (const id of ids) {
         this.positives.delete(id);
-        this.negatives.delete(id);
       }
 
       await this.cache?.remove(ids);
@@ -64,7 +62,6 @@ export class CompleteSourceStrategy<TResource> implements SourceStrategy<TResour
     }
 
     this.positives.clear();
-    this.negatives.clear();
     this.fetchRef = null;
     this.timestampMs = 0;
     await this.cache?.clear();
@@ -85,7 +82,6 @@ export class CompleteSourceStrategy<TResource> implements SourceStrategy<TResour
 
       if (positive.size > 0) {
         for (const [id, item] of positive) this.positives.set(id, item);
-        for (const [id, entry] of negative) this.negatives.set(id, entry);
         this.timestampMs = Date.now();
         return;
       }
@@ -93,7 +89,6 @@ export class CompleteSourceStrategy<TResource> implements SourceStrategy<TResour
 
     const items = await this.fetchAll();
     this.positives.clear();
-    this.negatives.clear();
 
     const entries: [string, TResource][] = [];
 
@@ -197,17 +192,12 @@ export class PartialSourceStrategy<TResource> implements SourceStrategy<TResourc
       for (const id of ids) {
         this.positives.delete(id);
         this.negatives.delete(id);
+        this.inflight.delete(id);
       }
       await this.cache?.remove(ids);
       return;
     }
 
-    this.positives.clear();
-    this.negatives.clear();
-    await this.cache?.clear();
-  }
-
-  async clearAll(): Promise<void> {
     this.positives.clear();
     this.negatives.clear();
     this.inflight.clear();

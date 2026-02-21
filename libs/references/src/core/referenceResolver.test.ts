@@ -23,7 +23,7 @@ function createResolver(configs: Record<string, Entity[]>): ReferenceResolver<So
   return ReferenceResolver.from(stores);
 }
 
-describe('References - Resolver', () => {
+describe('References - ReferenceResolver', () => {
   it('resolves a direct single ref (string → T)', async () => {
     const resolver = createResolver({ A: [a1, a2] });
     const item = { aId: 'f1', other: 42 };
@@ -211,11 +211,11 @@ describe('References - Resolver', () => {
   });
 
   describe('resolveSync', () => {
-    it('returns needs-resolve when source not warmed', () => {
+    it('returns missing-values when source not warmed', () => {
       const resolver = createResolver({ A: [a1] });
       const item = { aId: 'f1' };
       const out = resolver.resolveSync(item, { aId: 'A' });
-      expect(out.status).toBe('needs-resolve');
+      expect(out.status).toBe('missing-values');
     });
 
     it('returns ok with result when all refs in cache', async () => {

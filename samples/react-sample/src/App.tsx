@@ -5,7 +5,20 @@ import { TicketCards } from './components/TicketCards';
 import { references } from './configs/references';
 import { ticketService } from './services/ticketService';
 
+const RestoreKey = 'use-restore';
+
 export function App() {
+  const [ready, setReady] = useState(() => {
+    if (localStorage.getItem(RestoreKey) !== '1') return true;
+    references.restore().then(() => setReady(true));
+    return false;
+  });
+
+  if (!ready) return null;
+  return <AppContent />;
+}
+
+function AppContent() {
   const [seed, setSeed] = useState(1);
   const [version, setVersion] = useState(0);
 

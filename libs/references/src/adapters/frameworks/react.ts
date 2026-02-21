@@ -122,7 +122,7 @@ export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources>
       }
 
       resolve();
-    }, [data]);
+    }, [memory]);
 
     return { result, error, status, fetchStatus, invalidate };
   }

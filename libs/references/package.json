@@ -4,17 +4,6 @@
   "description": "Nested resource references resolver for typescript",
   "keywords": [
     "Typescript",
-    "dottedpath",
-    "dotpath",
-    "vite",
-    "vitest",
-    "dot syntax",
-    "get",
-    "set",
-    "deep",
-    "nesting",
-    "update",
-    "change",
     "typesafe"
   ],
   "homepage": "https://www.github.com/Mimikkk/references",
@@ -85,25 +74,27 @@
     "prepack": "pnpm build"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.18",
-    "@types/node": "^24.10.12",
     "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
+    "@types/node": "^24.10.12",
     "@vitejs/plugin-react": "^5.1.4",
-    "daisyui": "^5.1.24",
     "fake-indexeddb": "^6.2.5",
-    "idb-keyval": "^6.2.2",
     "prettier": "^3.8.1",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
     "rolldown-vite": "^7.3.1",
-    "tailwindcss": "^4.1.12",
     "typescript": "^5.9.3",
     "vite-plugin-dts": "^4.5.4",
     "vitest": "^4.0.18",
     "playwright": "^1.49.0"
   },
   "peerDependencies": {
-    "idb-keyval": "^6.2.2"
+    "idb-keyval": "^6.2.2",
+    "react": "^19.2.4"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "idb-keyval": {
+      "optional": true
+    }
   }
 }

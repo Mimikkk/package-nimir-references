@@ -9,49 +9,35 @@ importers:
   .: {}
 
   libs/references:
+    dependencies:
+      idb-keyval:
+        specifier: ^6.2.2
+        version: 6.2.2
+      react:
+        specifier: ^19.2.4
+        version: 19.2.4
     devDependencies:
-      '@tailwindcss/vite':
-        specifier: ^4.1.18
-        version: 4.1.18(vite@7.3.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0))
       '@types/node':
         specifier: ^24.10.12
         version: 24.10.12
       '@types/react':
         specifier: ^19.2.14
         version: 19.2.14
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.14)
       '@vitejs/plugin-react':
         specifier: ^5.1.4
         version: 5.1.4(vite@7.3.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0))
-      daisyui:
-        specifier: ^5.1.24
-        version: 5.5.18
       fake-indexeddb:
         specifier: ^6.2.5
         version: 6.2.5
-      idb-keyval:
-        specifier: ^6.2.2
-        version: 6.2.2
       playwright:
         specifier: ^1.49.0
         version: 1.58.2
       prettier:
         specifier: ^3.8.1
         version: 3.8.1
-      react:
-        specifier: ^19.2.4
-        version: 19.2.4
-      react-dom:
-        specifier: ^19.2.4
-        version: 19.2.4(react@19.2.4)
       rolldown-vite:
         specifier: ^7.3.1
         version: 7.3.1(@types/node@24.10.12)(esbuild@0.27.3)(jiti@2.6.1)(tsx@4.21.0)
-      tailwindcss:
-        specifier: ^4.1.12
-        version: 4.1.18
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -2634,13 +2620,6 @@ snapshots:
       '@tailwindcss/oxide': 4.1.18
       tailwindcss: 4.1.18
       vite: 6.4.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)
-
-  '@tailwindcss/vite@4.1.18(vite@7.3.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0))':
-    dependencies:
-      '@tailwindcss/node': 4.1.18
-      '@tailwindcss/oxide': 4.1.18
-      tailwindcss: 4.1.18
-      vite: 7.3.1(@types/node@24.10.12)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)
 
   '@tybys/wasm-util@0.10.1':
     dependencies:
