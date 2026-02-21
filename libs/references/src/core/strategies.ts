@@ -78,7 +78,7 @@ export class CompleteSourceStrategy<TResource> implements SourceStrategy<TResour
 
   private async fetch(): Promise<void> {
     if (this.cache) {
-      const { positive, negative } = await this.cache.all(this.ttlMs);
+      const { positive } = await this.cache.all(this.ttlMs);
 
       if (positive.size > 0) {
         for (const [id, item] of positive) this.positives.set(id, item);

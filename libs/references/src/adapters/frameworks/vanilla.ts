@@ -1,6 +1,6 @@
-import { isNil, type Fn, type FnAwait } from '../../core/common.ts';
-import { createReferenceContext, type SourcesContext } from '../../core/defineReferences.ts';
-import type { ReferenceResolver } from '../../core/referenceResolver.ts';
+import { isNil, type Fn, type FnAwait, type NilOf } from '../../core/common.ts';
+import { createReferenceContext, type ReferenceContext, type SourcesContext } from '../../core/defineReferences.ts';
+import type { ReferenceResolver, ResolveSyncResult } from '../../core/referenceResolver.ts';
 import type { RefFields, Resolve, Source, SourceRegistry } from '../../core/types.ts';
 
 export interface ResolveOptions<
@@ -15,21 +15,31 @@ export interface ResolveOptions<
 
 export class Refs<TSources extends SourceRegistry> {
   protected constructor(
-    protected readonly stores: ReadonlyMap<string, Source>,
-    protected readonly resolver: ReferenceResolver<TSources>,
+    private readonly stores: ReadonlyMap<string, Source>,
+    private readonly resolver: ReferenceResolver<TSources>,
   ) {}
 
-  static from<TSources extends SourceRegistry>(
-    stores: ReadonlyMap<string, Source>,
-    resolver: ReferenceResolver<TSources>,
-  ): Refs<TSources> {
+  static fromContext<TSources extends SourceRegistry>({
+    stores,
+    resolver,
+  }: ReferenceContext<TSources>): Refs<TSources> {
     return new this(stores, resolver);
+  }
+
+  inlineSync<TData, TFields extends RefFields<TData, TSources>, TResult = Resolve<TData, TSources, TFields>>(
+    data: TData,
+    options: ResolveOptions<TData, TFields, TSources, TResult>,
+  ): ResolveSyncResult<TResult | NilOf<TData>> {
+    if (isNil(data)) return { status: 'ok', result: data };
+    const resolved = this.resolver.resolveSync(data, options.fields);
+    if (resolved.status !== 'ok') return resolved;
+    return { status: 'ok', result: options.transform?.(resolved.result) ?? (resolved.result as TResult) };
   }
 
   async inline<TData, TFields extends RefFields<TData, TSources>, TResult = Resolve<TData, TSources, TFields>>(
     data: TData,
     options: ResolveOptions<TData, TFields, TSources, TResult>,
-  ): Promise<TResult | Extract<TData, undefined | null>> {
+  ): Promise<TResult | NilOf<TData>> {
     if (isNil(data)) return data;
     const resolved = await this.resolver.resolve(data, options.fields);
     return options.transform?.(resolved) ?? (resolved as TResult);
@@ -42,7 +52,7 @@ export class Refs<TSources extends SourceRegistry> {
   >(
     fn: TFn,
     options: ResolveOptions<FnAwait<TFn>, TFields, TSources, TResult>,
-  ): (...params: Parameters<TFn>) => Promise<TResult | Extract<FnAwait<TFn>, undefined | null>> {
+  ): (...params: Parameters<TFn>) => Promise<TResult | NilOf<FnAwait<TFn>>> {
     const self = this;
 
     return async function resolve(...params) {
@@ -66,9 +76,7 @@ export class Refs<TSources extends SourceRegistry> {
 export function defineReferences<TSources extends SourceRegistry>(
   sources: (context: SourcesContext) => TSources,
 ): Refs<TSources> {
-  const { stores, resolver } = createReferenceContext(sources);
-
-  return Refs.from(stores, resolver);
+  return Refs.fromContext(createReferenceContext(sources));
 }
 
 export type SourcesOf<TRefs extends Refs<any>> =

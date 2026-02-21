@@ -1,6 +1,6 @@
-import { Awaitable } from './common.ts';
+import type { Awaitable } from './common.ts';
 import type { ReferenceCache } from './referenceCache.ts';
-import { CompleteSourceStrategy, PartialSourceStrategy, SourceStrategy } from './strategies.ts';
+import { CompleteSourceStrategy, PartialSourceStrategy, type SourceStrategy } from './strategies.ts';
 import type { Source } from './types.ts';
 
 const hour4 = 4 * 60 * 60 * 1000;

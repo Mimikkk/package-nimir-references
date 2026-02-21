@@ -3,7 +3,17 @@ import type { RefFields, Resolve, Source, SourceRegistry } from './types.ts';
 
 const maxDepth = 10;
 
-export type MemoryResolveResult<TData> = { status: 'ok'; result: TData } | { status: 'missing-values' };
+export interface MemoryResolveOk<TData> {
+  status: 'ok';
+  result: TData;
+}
+
+export interface MemoryResolveMiss {
+  status: 'missing-values';
+  result: undefined;
+}
+
+export type ResolveSyncResult<TData> = MemoryResolveOk<TData> | MemoryResolveMiss;
 
 type DirectRef = string;
 type NestedRef = { source: string; fields: Fields };
@@ -66,14 +76,14 @@ export class ReferenceResolver<TSources extends SourceRegistry> {
   resolveSync<TData, TFields extends RefFields<TData, TSources>>(
     item: TData,
     fields: TFields,
-  ): MemoryResolveResult<Resolve<TData, TSources, TFields>> {
+  ): ResolveSyncResult<Resolve<TData, TSources, TFields>> {
     if (isNil(item)) {
       return { status: 'ok', result: item };
     }
     const result = this.runSync(item, fields as Fields);
 
     return result.isMissingValues
-      ? { status: 'missing-values' }
+      ? { status: 'missing-values', result: undefined }
       : { status: 'ok', result: result.result as Resolve<TData, TSources, TFields> };
   }
 

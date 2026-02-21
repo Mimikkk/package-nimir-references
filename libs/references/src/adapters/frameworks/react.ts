@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { type Fn, type FnAwait, isNil } from '../../core/common.ts';
-import { createReferenceContext, type SourcesContext } from '../../core/defineReferences.ts';
-import type { ReferenceResolver } from '../../core/referenceResolver.ts';
-import type { RefFields, Resolve, Source, SourceRegistry } from '../../core/types.ts';
-import { type ResolveOptions, Refs as VanillaRefs } from './vanilla.ts';
+import type { Fn, FnAwait } from '../../core/common.ts';
+import { createReferenceContext, type ReferenceContext, type SourcesContext } from '../../core/defineReferences.ts';
+import type { RefFields, Resolve, SourceRegistry } from '../../core/types.ts';
+import { Refs as VanillaRefs, type ResolveOptions } from './vanilla.ts';
 
 /**
  * The status of the data resolution.
@@ -42,19 +41,11 @@ interface UseReferences<
   (...params: Parameters<THook>): UseReferencesResult<TResult>;
 }
 
-function toResult<TData, TSources extends SourceRegistry, TFields extends RefFields<TData, TSources>, TResult>(
-  value: Resolve<TData, TSources, TFields> | Extract<TData, undefined | null>,
-  transform: ResolveOptions<TData, TFields, TSources, TResult>['transform'],
-): TResult | undefined {
-  if (isNil(value)) return undefined;
-  return transform?.(value as Resolve<TData, TSources, TFields>) ?? (value as TResult);
-}
-
 export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources> {
-  static from<TSources extends SourceRegistry>(
-    stores: ReadonlyMap<Extract<keyof TSources, string>, Source>,
-    resolver: ReferenceResolver<TSources>,
-  ) {
+  static fromContext<TSources extends SourceRegistry>({
+    stores,
+    resolver,
+  }: ReferenceContext<TSources>): Refs<TSources> {
     return new this(stores, resolver);
   }
 
@@ -65,7 +56,7 @@ export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources>
   >(
     use: TUse,
     options: ResolveOptions<FnAwait<TUse>, TFields, TSources, TResult>,
-  ): UseReferences<TUse, TSources, TFields, TResult> {
+  ): UseReferences<TUse, TSources, TFields, TResult | undefined> {
     const self = this;
 
     return function useReferences(...params) {
@@ -76,12 +67,10 @@ export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources>
   use<TData, TFields extends RefFields<TData, TSources>, TResult = Resolve<TData, TSources, TFields>>(
     data: TData,
     options: ResolveOptions<TData, TFields, TSources, TResult>,
-  ): UseReferencesResult<TResult> {
-    const memory = useMemo(() => this.resolver.resolveSync(data, options.fields), [data]);
+  ): UseReferencesResult<TResult | undefined> {
+    const memory = useMemo(() => this.inlineSync(data, options), [data]);
 
-    const [result, setResult] = useState<TResult | undefined>(() =>
-      memory.status === 'ok' ? toResult(memory.result, options.transform) : undefined,
-    );
+    const [result, setResult] = useState<TResult | undefined>(memory.result ?? undefined);
     const [status, setStatus] = useState<ResultStatus>(memory.status === 'ok' ? 'success' : 'pending');
     const [fetchStatus, setFetchStatus] = useState<FetchStatus>('idle');
     const [error, setError] = useState<unknown | undefined>(undefined);
@@ -92,10 +81,10 @@ export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources>
 
       try {
         setFetchStatus('fetching');
-        const result = (await this.inline(data, options))!;
+        const result = await this.inline(data, options);
 
         if (versionRef.current === version) {
-          setResult(result);
+          setResult(result ?? undefined);
           setError(undefined);
           setStatus('success');
         }
@@ -116,7 +105,7 @@ export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources>
 
     useEffect(() => {
       if (memory.status === 'ok') {
-        setResult(toResult(memory.result, options.transform));
+        setResult(memory.result ?? undefined);
         setStatus('success');
         return;
       }
@@ -131,9 +120,7 @@ export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources>
 export function defineReferences<TSources extends SourceRegistry>(
   sources: (context: SourcesContext) => TSources,
 ): Refs<TSources> {
-  const { stores, resolver } = createReferenceContext(sources);
-
-  return Refs.from(stores, resolver);
+  return Refs.fromContext(createReferenceContext(sources));
 }
 
 export type SourcesOf<TRefs extends Refs<any>> =
