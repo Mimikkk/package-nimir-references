@@ -24,6 +24,15 @@ function run(cmd: string, args: string[], cwd: string): { stdout: string; stderr
   }
 }
 
+function hasRuntime(cmd: string): boolean {
+  try {
+    execFileSync(cmd, ['--version'], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 describe('environment smoke (served package)', () => {
   const tmp = mkdtempSync(path.join(tmpdir(), 'nimir-refs-smoke-'));
   const tarball = path.join(pkgRoot, 'nimir-references-0.0.0.tgz');
@@ -90,6 +99,68 @@ describe('environment smoke (served package)', () => {
     `;
 
     const { stdout } = run(process.execPath, ['-e', code], tmp);
+    expect(stdout.trim()).toBe('ok');
+  });
+
+  it.skipIf(!hasRuntime('deno'))('imports package + subpaths in Deno', () => {
+    const denoTmp = path.join(tmp, 'deno');
+    const { mkdirSync } = require('node:fs') as typeof import('node:fs');
+    mkdirSync(denoTmp, { recursive: true });
+
+    const pkg = {
+      type: 'module' as const,
+      dependencies: {
+        '@nimir/references': `file:${tarball.replace(/\\/g, '/')}`,
+      },
+    };
+    writeFileSync(path.join(denoTmp, 'package.json'), JSON.stringify(pkg, null, 2));
+    run('pnpm', ['install', '--ignore-scripts'], denoTmp);
+
+    const code = `
+      import { defineReferences, ReferenceCache } from '@nimir/references';
+      import { createMemoryCache } from '@nimir/references/in-memory';
+
+      if (typeof defineReferences !== 'function') throw new Error('defineReferences missing');
+      const cache = ReferenceCache.new(createMemoryCache());
+      if (!cache) throw new Error('cache missing');
+
+      console.log('ok');
+    `;
+
+    writeFileSync(path.join(denoTmp, 'main.ts'), code);
+    const { stdout } = run('deno', ['run', '--allow-read', '--allow-env', '--node-modules-dir=manual', 'main.ts'], denoTmp);
+    expect(stdout.trim()).toBe('ok');
+  });
+
+  it.skipIf(!hasRuntime('bun'))('imports package + subpaths in Bun', () => {
+    const bunTmp = path.join(tmp, 'bun');
+    const { mkdirSync } = require('node:fs') as typeof import('node:fs');
+    mkdirSync(bunTmp, { recursive: true });
+
+    const pkg = {
+      type: 'module' as const,
+      dependencies: {
+        '@nimir/references': `file:${tarball.replace(/\\/g, '/')}`,
+        'fake-indexeddb': '^6.2.5',
+        'idb-keyval': '^6.2.2',
+      },
+    };
+    writeFileSync(path.join(bunTmp, 'package.json'), JSON.stringify(pkg, null, 2));
+    run('pnpm', ['install', '--ignore-scripts'], bunTmp);
+
+    const code = `
+      import { defineReferences, ReferenceCache } from '@nimir/references';
+      import { createMemoryCache } from '@nimir/references/in-memory';
+
+      if (typeof defineReferences !== 'function') throw new Error('defineReferences missing');
+      const cache = ReferenceCache.new(createMemoryCache());
+      if (!cache) throw new Error('cache missing');
+
+      console.log('ok');
+    `;
+
+    writeFileSync(path.join(bunTmp, 'main.ts'), code);
+    const { stdout } = run('bun', ['run', 'main.ts'], bunTmp);
     expect(stdout.trim()).toBe('ok');
   });
 
