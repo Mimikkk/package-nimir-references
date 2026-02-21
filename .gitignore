@@ -6,3 +6,5 @@ node_modules
 traces
 **/build
 *.tgz
+libs/references/readme.md
+libs/references/LICENSE

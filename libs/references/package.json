@@ -78,9 +78,8 @@
     "src",
     "!src/**/*.test.ts",
     "!src/vitest-setup.ts",
-    "tsconfig.json",
-    "tsconfig.vite.json",
-    "vite.config.ts"
+    "readme.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "vite build",

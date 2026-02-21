@@ -1,6 +1,15 @@
+import { copyFileSync } from 'node:fs';
 import path from 'node:path';
 import dts from 'vite-plugin-dts';
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vitest/config';
+
+const copyRootFiles = (): Plugin => ({
+  name: 'copy-root-files',
+  closeBundle() {
+    copyFileSync(path.resolve(__dirname, '../../readme.md'), path.resolve(__dirname, 'readme.md'));
+    copyFileSync(path.resolve(__dirname, '../../license'), path.resolve(__dirname, 'LICENSE'));
+  },
+});
 
 export default defineConfig({
   resolve: {
@@ -27,6 +36,6 @@ export default defineConfig({
       formats: ['es', 'cjs'],
     },
   },
-  plugins: [dts({ tsconfigPath: 'tsconfig.library.json' })],
+  plugins: [dts({ tsconfigPath: 'tsconfig.library.json' }), copyRootFiles()],
   test: { setupFiles: ['./src/vitest-setup.ts'] },
 });
