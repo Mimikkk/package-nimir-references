@@ -1,6 +1,6 @@
 {
   "name": "@nimir/references",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Nested resource references resolver for typescript",
   "keywords": [
     "typescript",
@@ -14,13 +14,13 @@
     "nested",
     "graph"
   ],
-  "homepage": "https://www.github.com/Mimikkk/references",
+  "homepage": "https://www.github.com/Mimikkk/package-nimir-references",
   "bugs": {
-    "url": "https://github.com/Mimikkk/references/issues"
+    "url": "https://github.com/Mimikkk/package-nimir-references/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Mimikkk/references.git"
+    "url": "git+https://github.com/Mimikkk/package-nimir-references.git"
   },
   "license": "MIT",
   "author": "Daniel Zdancewicz <zdancewicz.daniel@gmail.com>",
