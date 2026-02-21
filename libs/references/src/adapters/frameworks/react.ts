@@ -85,7 +85,6 @@ export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources>
     const [status, setStatus] = useState<ResultStatus>(memory.status === 'ok' ? 'success' : 'pending');
     const [fetchStatus, setFetchStatus] = useState<FetchStatus>('idle');
     const [error, setError] = useState<unknown | undefined>(undefined);
-    const isFirstRenderRef = useRef(false);
     const versionRef = useRef(0);
 
     const resolve = useEffectEvent(async () => {
@@ -116,18 +115,6 @@ export class Refs<TSources extends SourceRegistry> extends VanillaRefs<TSources>
     const invalidate = useCallback(() => resolve(), []);
 
     useEffect(() => {
-      if (isNil(data)) {
-        isFirstRenderRef.current = true;
-        return;
-      }
-
-      if (isFirstRenderRef.current === false && memory.status === 'ok') {
-        setResult(toResult(memory.result, options.transform));
-        isFirstRenderRef.current = true;
-        return;
-      }
-      isFirstRenderRef.current = true;
-
       if (memory.status === 'ok') {
         setResult(toResult(memory.result, options.transform));
         setStatus('success');

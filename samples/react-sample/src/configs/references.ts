@@ -8,7 +8,7 @@ const usersCache = ReferenceCache.new<User>(createIdbKeyvalCache({ database: 'ni
 
 export const references = defineReferences(c => ({
   users: c.source({
-    fetchByIds: userService.fetchByIds,
+    batch: userService.fetchByIds,
     batchSize: 50,
     ttlMs: 15_000,
     cache: usersCache,
