@@ -8,6 +8,14 @@
     "build": "pnpm --filter @nimir/references build",
     "dev:react": "pnpm --filter @nimir/react-sample dev",
     "dev:node": "pnpm --filter @nimir/node-sample start",
-    "publish:lib": "pnpm --filter @nimir/references publish --access public"
+    "publish:lib": "pnpm --filter @nimir/references publish --access public",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "devDependencies": {
+    "mermaid": "^11.12.3",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-mermaid": "^2.0.17"
   }
 }

@@ -8,3 +8,7 @@ traces
 *.tgz
 libs/references/readme.md
 libs/references/LICENSE
+.vitepress/dist
+.vitepress/cache
+docs/.vitepress/dist
+docs/.vitepress/cache

@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { ActionButtons } from './components/ActionButtons';
 import { Navbar } from './components/Navbar';
@@ -6,6 +7,20 @@ import { references } from './configs/references';
 import { ticketService } from './services/ticketService';
 
 const RestoreKey = 'use-restore';
+
+const useTicketQuery = (id: number) =>
+  useQuery({
+    queryKey: ['ticket', id],
+    queryFn: () => ticketService.createTicket(id),
+  });
+
+const useTicketRefs = references.hook((id: number) => useTicketQuery(id).data, {
+  fields: {
+    assigneeId: 'users',
+    watcherIds: 'users',
+    meta: { lastEditedById: 'users' },
+  },
+});
 
 export function App() {
   const [ready, setReady] = useState(() => {
@@ -24,13 +39,7 @@ function AppContent() {
 
   const ticket = useMemo(() => ticketService.createTicket(seed), [seed]);
 
-  const { result, status, fetchStatus, error, invalidate } = references.use(ticket, {
-    fields: {
-      assigneeId: 'users',
-      watcherIds: 'users',
-      meta: { lastEditedById: 'users' },
-    },
-  });
+  const { result, status, fetchStatus, error, invalidate } = useTicketRefs(seed);
 
   const handleShuffle = useCallback(() => setSeed(x => x + 1), []);
   const handleReResolve = useCallback(() => invalidate(), [invalidate]);

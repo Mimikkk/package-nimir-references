@@ -218,3 +218,7 @@ const resolved = refs.use(data, { fields: { assigneeId: 'User' } });
 
 - **Depth limit** — resolution is bounded at 10 levels to prevent infinite loops on circular configs.
 - **Unknown sources** — referencing a source name that doesn't exist at runtime is silently skipped.
+
+## AI / LLM integration
+
+Machine-readable docs are available at [`llms.txt`](https://mimikkk.github.io/package-nimir-references/llms.txt) and ship with the npm package. Point your AI coding assistant at this file for accurate API guidance.

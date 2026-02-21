@@ -1,0 +1,92 @@
+# @nimir/references
+
+> Type-safe nested reference resolver for TypeScript resource graphs.
+
+## What it does
+
+Resolves foreign-key-style ID fields in nested objects into their full entities. You define sources (how to fetch each resource type), then declare which fields are references. The library batches, deduplicates, and caches fetches automatically, resolving up to 10 levels deep.
+
+Think of it as a declarative, type-safe alternative to manually joining/populating relational data on the client or server.
+
+## When to use it
+
+- You have API responses with ID fields (e.g. `userId`, `teamId`) that need to be resolved into full objects.
+- You want automatic batching and deduplication of fetches (like DataLoader, but for nested resolution).
+- You need type-safe resolved output — the library infers `xT` (single) and `xTs` (array) fields on the result type.
+- You want pluggable caching (in-memory, IndexedDB, Redis) with TTL and cache restoration.
+- You're using React and want reactive reference resolution via hooks.
+
+## Install
+
+```
+npm install @nimir/references
+```
+
+## Core API
+
+```typescript
+import { defineReferences } from '@nimir/references';
+
+const refs = defineReferences(c => ({
+  User: c.source<User>({ batch: async ids => fetchUsers(ids) }),
+  Team: c.source<Team>({ batch: async ids => fetchTeams(ids) }),
+}));
+
+// Resolve references inline
+const result = await refs.inline(
+  { userId: 'u1', teamId: 't1' },
+  { fields: { userId: 'User', teamId: 'Team' } },
+);
+// result.userIdT  → User | null
+// result.teamIdT  → Team | null
+
+// Wrap an async function
+const getTicket = refs.fn(fetchTicket, {
+  fields: { assigneeId: 'User', teamId: { source: 'Team', fields: { leadId: 'User' } } },
+});
+```
+
+## React API
+
+```typescript
+import { defineReferences } from '@nimir/references/react';
+
+const refs = defineReferences(c => ({ User: c.source<User>({ batch: fetchUsers }) }));
+
+// Wrap a query hook
+const useTicket = refs.hook(useGetTicket, { fields: { assigneeId: 'User' } });
+
+// Resolve inline data reactively
+const resolved = refs.use(data, { fields: { assigneeId: 'User' } });
+```
+
+## Source modes
+
+- `batch` — fetch by IDs. Supports batching (configurable `batchSize`), inflight deduplication, negative caching.
+- `list` — fetch all. Resolves from a full collection, refreshes on TTL expiry.
+
+## Caching adapters
+
+```typescript
+import { ReferenceCache } from '@nimir/references';
+import { createMemoryCache } from '@nimir/references/in-memory';
+import { createIdbKeyvalCache } from '@nimir/references/idb-keyval';
+import { createRedisCache } from '@nimir/references/redis';
+```
+
+## Key concepts
+
+- Output fields use `T` / `Ts` suffix: `userId` → `userIdT` (single), `userIds` → `userIdTs` (array).
+- Null/undefined IDs resolve to `null`.
+- Missing entities (ID exists but source didn't return it) resolve to `null`.
+- Resolution depth is bounded at 10 levels.
+- Original ID fields are preserved — the library returns a cloned object.
+
+## Full documentation
+
+https://mimikkk.github.io/package-nimir-references/
+
+## Links
+
+- npm: https://www.npmjs.com/package/@nimir/references
+- GitHub: https://github.com/Mimikkk/package-nimir-references

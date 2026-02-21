@@ -12,7 +12,8 @@
     "outDir": "build",
     "lib": ["DOM", "ESNext"],
     "types": ["rolldown-vite/client", "node", "vitest"],
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "noErrorTruncation": true
   },
   "include": ["src", "readme.md"],
   "references": [{ "path": "./tsconfig.vite.json" }]

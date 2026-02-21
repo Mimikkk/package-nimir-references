@@ -1,3 +1,9 @@
 packages:
-  - 'libs/*'
-  - 'samples/*'
+  - libs/*
+  - samples/*
+
+onlyBuiltDependencies:
+  - cpu-features
+  - esbuild
+  - protobufjs
+  - ssh2
