@@ -8,6 +8,6 @@
     "build": "pnpm --filter @nimir/references build",
     "dev:react": "pnpm --filter @nimir/react-sample dev",
     "dev:node": "pnpm --filter @nimir/node-sample start",
-    "publish": "pnpm --filter @nimir/references publish"
+    "publish:lib": "pnpm --filter @nimir/references publish"
   }
 }
