@@ -17,6 +17,7 @@ export default defineConfig({
         react: 'src/exports/react.ts',
         'in-memory': 'src/exports/in-memory.ts',
         'idb-keyval': 'src/exports/idb-keyval.ts',
+        redis: 'src/exports/redis.ts',
       },
       fileName: (format, name) => {
         if (format === 'es') return `${name}.es.js`;

@@ -142,6 +142,20 @@ const cache = ReferenceCache.new<User>(
 );
 ```
 
+### Redis
+
+Generic adapter — bring any Redis client (`ioredis`, `redis`, `@upstash/redis`, etc.).
+
+```ts
+import { ReferenceCache } from '@nimir/references';
+import { createRedisCache } from '@nimir/references/redis';
+import Redis from 'ioredis';
+
+const cache = ReferenceCache.new<User>(
+  createRedisCache({ client: new Redis(), prefix: 'my-app:refs:' }),
+);
+```
+
 ## API
 
 - `defineReferences((builder) => ({ ...sources }))` — create a `Refs` instance.
