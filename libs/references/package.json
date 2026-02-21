@@ -3,8 +3,16 @@
   "version": "0.0.0",
   "description": "Nested resource references resolver for typescript",
   "keywords": [
-    "Typescript",
-    "typesafe"
+    "typescript",
+    "typesafe",
+    "references",
+    "resolver",
+    "batch",
+    "cache",
+    "react",
+    "dataloader",
+    "nested",
+    "graph"
   ],
   "homepage": "https://www.github.com/Mimikkk/references",
   "bugs": {
