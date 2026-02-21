@@ -1,14 +1,47 @@
-# @nimir/references
+# @nimir/references - Type-safe nested reference resolver for resource graphs
 
-Type-safe nested reference resolver for resource graphs.
+[![npm version](https://img.shields.io/npm/v/@nimir/references)](https://www.npmjs.com/package/@nimir/references)
+[![npm downloads](https://img.shields.io/npm/dm/@nimir/references)](https://www.npmjs.com/package/@nimir/references)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/@nimir/references)](https://bundlephobia.com/package/@nimir/references)
+[![license](https://img.shields.io/npm/l/@nimir/references)](https://github.com/Mimikkk/references/blob/master/LICENSE)
 
 Define _sources_ (how to fetch resources by ID), then resolve arbitrary payloads by declaring which fields are references.
 
 ## Install
 
 ```bash
-npm i @nimir/references
+pnpm install @nimir/references
 ```
+
+```bash
+npm install @nimir/references
+```
+
+```bash
+yarn add @nimir/references
+```
+
+```bash
+deno install npm:@nimir/references
+```
+
+```bash
+bun install npm:@nimir/references
+```
+
+## Features
+
+- `defineReferences(builder)` — create a typed reference resolver with named sources.
+- `refs.inline(data, config)` — resolve references in a payload, return a cloned result.
+- `refs.fn(fn, config)` — wrap an async function; auto-resolve references in its return value.
+- `refs.invalidate(source, ids?)` — clear cache entries for a source.
+- `refs.restore()` — hydrate sources from persistent cache.
+- `refs.clear()` — invalidate all sources.
+- Batch and list source modes with inflight deduplication.
+- Pluggable caching: in-memory, IndexedDB (`idb-keyval`), Redis.
+- React integration via `refs.hook` and `refs.use`.
+- Nested resolution up to 10 levels deep.
+- Null-safe: missing IDs resolve to `null`.
 
 ## Quick start
 
@@ -137,9 +170,7 @@ Optional adapter — the core package stays runtime-agnostic.
 import { ReferenceCache } from '@nimir/references';
 import { createIdbKeyvalCache } from '@nimir/references/idb-keyval';
 
-const cache = ReferenceCache.new<User>(
-  createIdbKeyvalCache({ database: 'my-app', table: 'references' }),
-);
+const cache = ReferenceCache.new<User>(createIdbKeyvalCache({ database: 'my-app', table: 'references' }));
 ```
 
 ### Redis
@@ -151,12 +182,10 @@ import { ReferenceCache } from '@nimir/references';
 import { createRedisCache } from '@nimir/references/redis';
 import Redis from 'ioredis';
 
-const cache = ReferenceCache.new<User>(
-  createRedisCache({ client: new Redis(), prefix: 'my-app:refs:' }),
-);
+const cache = ReferenceCache.new<User>(createRedisCache({ client: new Redis(), prefix: 'my-app:refs:' }));
 ```
 
-## API
+## Node API
 
 - `defineReferences((builder) => ({ ...sources }))` — create a `Refs` instance.
 - `refs.inline(data, { fields, transform? })` — resolve references in `data`, return a cloned result.
@@ -165,7 +194,10 @@ const cache = ReferenceCache.new<User>(
 - `refs.restore()` — eagerly hydrate all sources from persistent cache.
 - `refs.clear()` — invalidate all sources.
 
-### React
+### React API
+
+- `refs.hook(useQuery, { fields, transform? })` — wrap a data hook; returns `{ result, status, fetchStatus, error, invalidate }`.
+- `refs.use(data, { fields, transform? })` — resolve inline data reactively.
 
 ```ts
 import { defineReferences } from '@nimir/references/react';
@@ -179,7 +211,7 @@ const useTicket = refs.hook(useGetTicket, { fields: { assigneeId: 'User' } });
 const resolved = refs.use(data, { fields: { assigneeId: 'User' } });
 ```
 
-## Notes
+## Caveats
 
-- **Depth limit**: resolution is bounded at 10 levels to prevent infinite loops on circular configs.
-- **Unknown sources**: referencing a source name that doesn't exist at runtime is silently skipped.
+- **Depth limit** — resolution is bounded at 10 levels to prevent infinite loops on circular configs.
+- **Unknown sources** — referencing a source name that doesn't exist at runtime is silently skipped.
