@@ -5,7 +5,8 @@
 [![bundle size](https://img.shields.io/bundlephobia/minzip/@nimir/references)](https://bundlephobia.com/package/@nimir/references)
 [![license](https://img.shields.io/npm/l/@nimir/references)](https://github.com/Mimikkk/references/blob/master/LICENSE)
 
-Define _sources_ (how to fetch resources by ID), then resolve arbitrary payloads by declaring which fields are references.
+Define _sources_ (how to fetch resources), then resolve arbitrary payloads by declaring which fields are references.
+Its all type safe.
 
 ## Install
 
