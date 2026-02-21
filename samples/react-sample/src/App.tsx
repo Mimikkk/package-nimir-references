@@ -1,30 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ActionButtons } from './components/ActionButtons';
 import { Navbar } from './components/Navbar';
 import { TicketCards } from './components/TicketCards';
 import { references } from './configs/references';
 import { ticketService } from './services/ticketService';
 
-const WarmupKey = 'should-warmup';
-function useWarmupControl() {
-  const [enabled, setEnabled] = useState(() => localStorage.getItem(WarmupKey) === '1');
-
-  const set = useCallback((v: boolean) => {
-    setEnabled(v);
-    localStorage.setItem(WarmupKey, v ? '1' : '0');
-  }, []);
-
-  return [enabled, set] as const;
-}
-
 export function App() {
   const [seed, setSeed] = useState(1);
   const [version, setVersion] = useState(0);
-  const [shouldWarmup, setShouldWarmup] = useWarmupControl();
-
-  useEffect(() => {
-    if (shouldWarmup) references.warmup();
-  }, [shouldWarmup]);
 
   const ticket = useMemo(() => ticketService.createTicket(seed), [seed]);
 
@@ -42,7 +25,7 @@ export function App() {
 
   return (
     <div className="min-h-screen">
-      <Navbar status={status} fetchStatus={fetchStatus} warmupEnabled={shouldWarmup} onWarmupToggle={setShouldWarmup} />
+      <Navbar status={status} fetchStatus={fetchStatus} />
       <main className="mx-auto w-full max-w-5xl px-4 py-6" key={version}>
         <ActionButtons onShuffle={handleShuffle} onReResolve={handleReResolve} onRemount={handleRemount} />
         {error ? (
