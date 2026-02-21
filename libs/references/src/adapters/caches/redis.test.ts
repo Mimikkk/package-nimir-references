@@ -1,3 +1,4 @@
+import { RedisContainer, type StartedRedisContainer } from '@testcontainers/redis';
 import { createClient } from 'redis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { RedisLike } from './redis.ts';
@@ -117,45 +118,22 @@ describe('Caches - RedisCache (redislike)', () => {
   });
 });
 
-import net from 'net';
-function checkRedisAvailable(): Promise<boolean> {
-  return new Promise(resolve => {
-    const socket = net.createConnection({ host: 'localhost', port: 6379 });
-    socket.once('connect', () => {
-      socket.end();
-      resolve(true);
-    });
-    socket.once('error', () => {
-      resolve(false);
-    });
-    setTimeout(() => {
-      socket.destroy();
-      resolve(false);
-    }, 300);
-  });
-}
-
-describe('Caches - RedisCache (redis package)', () => {
+describe('Caches - RedisCache (redis container with redis-package)', () => {
+  let container: StartedRedisContainer;
   let client: ReturnType<typeof createClient>;
-  let redisAvailable = false;
 
   beforeAll(async () => {
-    redisAvailable = await checkRedisAvailable();
-    if (!redisAvailable) return;
-    client = createClient({ url: 'redis://localhost:6379' });
+    container = await new RedisContainer('redis:8-alpine').start();
+    client = createClient({ url: container.getConnectionUrl() });
     await client.connect();
-    await client.flushDb();
-  });
+  }, 60_000);
 
   afterAll(async () => {
-    if (!redisAvailable) return;
-    await client.flushDb();
     await client.destroy();
+    await container.stop();
   });
 
-  const itr = (name: string, fn: () => unknown) => (redisAvailable ? it(name, fn) : it.skip(name, fn));
-
-  itr('setMany + getMany round-trip', async () => {
+  it('setMany + getMany round-trip', async () => {
     const cache = createRedisCache<string>({ client, prefix: 'test:' });
 
     await cache.setMany([
@@ -169,7 +147,7 @@ describe('Caches - RedisCache (redis package)', () => {
     await cache.clear();
   });
 
-  itr('entries returns all stored values', async () => {
+  it('entries returns all stored values', async () => {
     const cache = createRedisCache<string>({ client, prefix: 'ent:' });
 
     await cache.setMany([
@@ -189,7 +167,7 @@ describe('Caches - RedisCache (redis package)', () => {
     await cache.clear();
   });
 
-  itr('delMany removes keys', async () => {
+  it('delMany removes keys', async () => {
     const cache = createRedisCache<string>({ client, prefix: 'del:' });
 
     await cache.setMany([
@@ -206,7 +184,7 @@ describe('Caches - RedisCache (redis package)', () => {
     await cache.clear();
   });
 
-  itr('clear removes only prefixed keys', async () => {
+  it('clear removes only prefixed keys', async () => {
     await client.set('unrelated', 'keep');
 
     const cache = createRedisCache<string>({ client, prefix: 'clr:' });
