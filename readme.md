@@ -4,9 +4,12 @@
 [![npm downloads](https://img.shields.io/npm/dm/@nimir/references)](https://www.npmjs.com/package/@nimir/references)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/@nimir/references)](https://bundlephobia.com/package/@nimir/references)
 [![license](https://img.shields.io/npm/l/@nimir/references)](https://github.com/Mimikkk/references/blob/master/LICENSE)
+[![docs](https://img.shields.io/badge/docs-Read%20the%20docs-blue)](https://mimikkk.github.io/package-nimir-references/)
 
 Define _sources_ (how to fetch resources), then resolve arbitrary payloads by declaring which fields are references.
-Its all type safe.
+Its all type safe. 🙇‍♀️
+
+### <a href="https://mimikkk.github.io/package-nimir-references/">→ Read the docs</a>
 
 ## Install
 
