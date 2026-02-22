@@ -7,7 +7,9 @@
 [![docs](https://img.shields.io/badge/docs-Read%20the%20docs-blue)](https://mimikkk.github.io/package-nimir-references/)
 
 Define _sources_ (how to fetch resources), then resolve arbitrary payloads by declaring which fields are references.
-Its all type safe.
+Its all type safe. 🙇‍♀️
+
+### <a href="https://mimikkk.github.io/package-nimir-references/">→ Read the docs</a>
 
 ## Install
 
