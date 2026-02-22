@@ -33,15 +33,15 @@ Define your sources — these describe how to fetch each resource type:
 ```ts
 import { defineReferences } from '@nimir/references';
 
-type Faculty = { id: string; name: string };
-type Branch = { id: string; facultyId: string };
+type User = { id: string; name: string };
+type Permission = { id: string; userId: string };
 
 const references = defineReferences(c => ({
-  Faculty: c.source<Faculty>({
+  User: c.source<User>({
     batch: async ids => fetchFaculties(ids),
   }),
-  Branch: c.source<Branch>({
-    batch: async ids => fetchBranches(ids),
+  Permission: c.source<Permission>({
+    batch: async ids => fetchPermissiones(ids),
   }),
 }));
 ```
@@ -50,19 +50,19 @@ Resolve references in any payload by declaring which fields are reference IDs:
 
 ```ts
 const result = await references.inline(
-  { branchId: 'b1' as string | null },
+  { permissionId: 'p1' as string | null },
   {
     fields: {
-      branchId: { source: 'Branch', fields: { facultyId: 'Faculty' } },
+      permissionId: { source: 'Permission', fields: { userId: 'User' } },
     },
   },
 );
 
-// result.branchIdT  → Branch | null
-// result.branchIdT.facultyIdT → Faculty | null
+// result.permissionIdT  → Permission | null
+// result.permissionIdT.userIdT → User | null
 ```
 
-The original `branchId` field stays as-is. The resolved entity is added at `branchIdT` — fully typed, null-safe.
+The original `permissionId` field stays as-is. The resolved entity is added at `permissionIdT` — fully typed, null-safe.
 
 ## Features
 

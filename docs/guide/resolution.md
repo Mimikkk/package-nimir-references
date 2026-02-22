@@ -34,7 +34,7 @@ Resolution is driven by a `fields` object that mirrors the shape of your data:
 
 - **Direct ref**: `{ userId: 'User' }`
 - **Direct ref array**: `{ userIds: 'User' }` (where `userIds` is `Array<string | null | undefined>`)
-- **Nested ref**: `{ branchId: { source: 'Branch', fields: { facultyId: 'Faculty' } } }`
+- **Nested ref**: `{ permissionId: { source: 'Permission', fields: { userId: 'User' } } }`
 - **Structural nesting** (into objects/arrays without creating a reference):
   - `{ profile: { avatarFileId: 'File' } }`
   - `{ items: { productId: 'Product' } }` for `items: Array<{ productId: ... }>`

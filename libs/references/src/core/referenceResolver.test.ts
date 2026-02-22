@@ -11,7 +11,7 @@ const entity = (id: string): Entity => ({ id });
 
 const a1 = entity('f1');
 const a2 = entity('f2');
-const b1 = entity('b1');
+const p1 = entity('p1');
 
 function createResolver(configs: Record<string, Entity[]>): ReferenceResolver<SourceRegistry> {
   const stores = new Map<string, ReferenceSource<Entity>>();
@@ -60,26 +60,26 @@ describe('References - ReferenceResolver', () => {
   it('resolves multiple fields from different sources in parallel', async () => {
     const resolver = createResolver({
       A: [a1],
-      Branch: [b1],
+      Permission: [p1],
     });
-    const item = { aId: 'f1', branchId: 'b1' };
-    const result = await resolver.resolve(item, { aId: 'A', branchId: 'Branch' });
+    const item = { aId: 'f1', permissionId: 'p1' };
+    const result = await resolver.resolve(item, { aId: 'A', permissionId: 'Permission' });
 
     expect(result).toEqual({
       aId: 'f1',
       aIdT: a1,
-      branchId: 'b1',
-      branchIdT: b1,
+      permissionId: 'p1',
+      permissionIdT: p1,
     });
   });
 
   it('resolves null/undefined fields as null T', async () => {
     const resolver = createResolver({ A: [a1] });
-    const item = { aId: null as string | null, branchId: undefined as string | undefined };
-    const result: any = await resolver.resolve(item, { aId: 'A', branchId: 'A' });
+    const item = { aId: null as string | null, permissionId: undefined as string | undefined };
+    const result: any = await resolver.resolve(item, { aId: 'A', permissionId: 'A' });
 
     expect(result.aIdT).toBeUndefined();
-    expect(result.branchIdT).toBeUndefined();
+    expect(result.permissionIdT).toBeUndefined();
   });
 
   it('resolves missing IDs as null', async () => {
@@ -114,37 +114,37 @@ describe('References - ReferenceResolver', () => {
   });
 
   it('handles nested references (multi-step resolution)', async () => {
-    const branch1 = { id: 'b1', aId: 'f1' };
+    const branch1 = { id: 'p1', aId: 'f1' };
     const resolver = createResolver({
-      Branch: [branch1],
+      Permission: [branch1],
       A: [a1],
     });
 
-    const item = { branchId: 'b1' };
+    const item = { permissionId: 'p1' };
     const result: any = await resolver.resolve(item, {
-      branchId: { source: 'Branch', fields: { aId: 'A' } },
+      permissionId: { source: 'Permission', fields: { aId: 'A' } },
     });
 
-    expect(result.branchIdT).toBeTruthy();
-    expect(result.branchIdT.aIdT).toEqual(a1);
+    expect(result.permissionIdT).toBeTruthy();
+    expect(result.permissionIdT.aIdT).toEqual(a1);
   });
 
   it('handles array nested references (multi-step, array IDs → resolved children)', async () => {
-    const b1 = { id: 'b1', aId: 'f1' };
+    const b1 = { id: 'p1', aId: 'f1' };
     const b2 = { id: 'b2', aId: 'f2' };
     const resolver = createResolver({
-      Branch: [b1, b2],
+      Permission: [b1, b2],
       A: [a1, a2],
     });
 
-    const item = { branchIds: ['b1', 'b2'] };
+    const item = { permissionIds: ['p1', 'b2'] };
     const result: any = await resolver.resolve(item, {
-      branchIds: { source: 'Branch', fields: { aId: 'A' } },
+      permissionIds: { source: 'Permission', fields: { aId: 'A' } },
     });
 
-    expect(result.branchIdsTs).toHaveLength(2);
-    expect(result.branchIdsTs[0].aIdT).toEqual(a1);
-    expect(result.branchIdsTs[1].aIdT).toEqual(a2);
+    expect(result.permissionIdsTs).toHaveLength(2);
+    expect(result.permissionIdsTs[0].aIdT).toEqual(a1);
+    expect(result.permissionIdsTs[1].aIdT).toEqual(a2);
   });
 
   it('does not mutate the original item (structuredClone)', async () => {
@@ -181,8 +181,8 @@ describe('References - ReferenceResolver', () => {
   });
 
   it('throws when resolution exceeds maximum depth', async () => {
-    const a = { id: 'a1', bId: 'b1' };
-    const b = { id: 'b1', aId: 'a1' };
+    const a = { id: 'a1', bId: 'p1' };
+    const b = { id: 'p1', aId: 'a1' };
     const resolver = createResolver({ A: [a], B: [b] });
 
     let fields: any = 'B';

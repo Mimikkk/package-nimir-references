@@ -49,29 +49,36 @@ bun install npm:@nimir/references
 ```ts
 import { defineReferences } from '@nimir/references';
 
-type Faculty = { id: string; name: string };
-type Branch = { id: string; facultyId: string };
+interface User {
+  id: string;
+  name: string;
+}
+
+interface Permission {
+  id: string;
+  userId: string;
+}
 
 const references = defineReferences(c => ({
-  Faculty: c.source<Faculty>({
-    batch: async ids => fetchFaculties(ids),
+  User: c.source<User>({
+    batch: async ids => fetchUsers(ids),
   }),
-  Branch: c.source<Branch>({
-    batch: async ids => fetchBranches(ids),
+  Permission: c.source<Permission>({
+    batch: async ids => fetchPermissiones(ids),
   }),
 }));
 
 const result = await references.inline(
-  { branchId: 'b1' as string | null },
+  { permissionId: 'p1' },
   {
     fields: {
-      branchId: { source: 'Branch', fields: { facultyId: 'Faculty' } },
+      permissionId: { source: 'Permission', fields: { userId: 'User' } },
     },
   },
 );
 
-// result.branchIdT  → Branch | null
-// result.branchIdT.facultyIdT → Faculty | null
+// result.permissionIdT  → Permission | null
+// result.permissionIdT.userIdT → User | null
 ```
 
 ## How resolution works
@@ -82,7 +89,7 @@ Resolution is driven by a `fields` object that mirrors the shape of your data:
 
 - **Direct ref**: `{ userId: 'User' }`
 - **Direct ref array**: `{ userIds: 'User' }` (where `userIds` is `Array<string | null | undefined>`)
-- **Nested ref**: `{ branchId: { source: 'Branch', fields: { facultyId: 'Faculty' } } }`
+- **Nested ref**: `{ permissionId: { source: 'Permission', fields: { userId: 'User' } } }`
 - **Structural nesting** (into objects/arrays without creating a reference):
   - `{ profile: { avatarFileId: 'File' } }`
   - `{ items: { productId: 'Product' } }` for `items: Array<{ productId: ... }>`
