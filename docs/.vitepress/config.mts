@@ -4,7 +4,7 @@ import { withMermaid } from 'vitepress-plugin-mermaid';
 export default withMermaid(defineConfig({
   title: '@nimir/references',
   description: 'Type-safe nested reference resolver for TypeScript resource graphs',
-  base: '/package-nimir-references/',
+  base: process.env.VITEPRESS_BASE ?? '/package-nimir-references/',
   head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/package-nimir-references/logo.svg' }]],
   vite: {
     optimizeDeps: {
